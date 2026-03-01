@@ -6,6 +6,7 @@ import (
 
 	. "github.com/tggo/goRDFlib"
 	"github.com/tggo/goRDFlib/jsonld"
+	"github.com/tggo/goRDFlib/testutil"
 	"github.com/tggo/goRDFlib/nq"
 	"github.com/tggo/goRDFlib/nt"
 	"github.com/tggo/goRDFlib/rdfxml"
@@ -200,7 +201,7 @@ func TestAssertGraphEqualMismatch(t *testing.T) {
 	g2.Add(s, p, NewLiteral("b"))
 
 	mt := &testing.T{}
-	AssertGraphEqual(mt, g1, g2)
+	testutil.AssertGraphEqual(mt, g1, g2)
 }
 
 // --- SPARQL VALUES with multi-var ---

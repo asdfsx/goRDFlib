@@ -2,12 +2,11 @@
 //
 // This root package re-exports all public types and functions from
 // subpackages for backward compatibility. New code may import
-// subpackages directly (term, store, namespace, graph, paths, plugin, testutil).
+// subpackages directly: term, store, namespace, graph, paths, plugin, testutil.
 package rdflibgo
 
 import (
 	"iter"
-	"testing"
 
 	"github.com/tggo/goRDFlib/graph"
 	"github.com/tggo/goRDFlib/namespace"
@@ -15,173 +14,192 @@ import (
 	"github.com/tggo/goRDFlib/plugin"
 	"github.com/tggo/goRDFlib/store"
 	"github.com/tggo/goRDFlib/term"
-	"github.com/tggo/goRDFlib/testutil"
 )
 
-// ---- term package re-exports ----
+// --- Core interfaces and types (from term/) ---
 
-// Core interfaces
-type Term = term.Term
-type Subject = term.Subject
-type Predicate = term.Predicate
-type NamespaceManager = term.NamespaceManager
+type (
+	Term             = term.Term
+	Subject          = term.Subject
+	Predicate        = term.Predicate
+	NamespaceManager = term.NamespaceManager
+	URIRef           = term.URIRef
+	BNode            = term.BNode
+	Literal          = term.Literal
+	Variable         = term.Variable
+	LiteralOption    = term.LiteralOption
+	Triple           = term.Triple
+	Quad             = term.Quad
+	TriplePattern    = term.TriplePattern
+	TermSlice        = term.TermSlice
+)
 
-// Concrete types
-type URIRef = term.URIRef
-type BNode = term.BNode
-type Literal = term.Literal
-type Variable = term.Variable
-type LiteralOption = term.LiteralOption
-type Triple = term.Triple
-type Quad = term.Quad
-type TriplePattern = term.TriplePattern
-type TermSlice = term.TermSlice
+// --- Store types (from store/) ---
 
-// Constructors & functions
-var NewURIRef = term.NewURIRef
-var NewURIRefUnsafe = term.NewURIRefUnsafe
-var NewURIRefWithBase = term.NewURIRefWithBase
-var NewBNode = term.NewBNode
-var NewLiteral = term.NewLiteral
-var NewVariable = term.NewVariable
-var WithLang = term.WithLang
-var WithDatatype = term.WithDatatype
-var CompareTerm = term.CompareTerm
-var SortTerms = term.SortTerms
-var GoToLexical = term.GoToLexical
+type (
+	Store             = store.Store
+	MemoryStore       = store.MemoryStore
+	TripleIterator    = iter.Seq[Triple]
+	TermIterator      = iter.Seq[Term]
+	TermPairIterator  = iter.Seq2[Term, Term]
+	NamespaceIterator = iter.Seq2[string, URIRef]
+)
 
-// Errors
-var ErrInvalidIRI = term.ErrInvalidIRI
-var ErrUnknownFormat = term.ErrUnknownFormat
-var ErrTermNotInNamespace = term.ErrTermNotInNamespace
-var ErrInvalidCURIE = term.ErrInvalidCURIE
-var ErrPrefixNotBound = term.ErrPrefixNotBound
+// --- Namespace types (from namespace/) ---
 
-// XSD constants
-const XSDNamespace = term.XSDNamespace
-const RDFNamespace = term.RDFNamespace
+type (
+	Namespace       = namespace.Namespace
+	ClosedNamespace = namespace.ClosedNamespace
+	NSManager       = namespace.NSManager
+)
 
-var XSDString = term.XSDString
-var XSDInteger = term.XSDInteger
-var XSDInt = term.XSDInt
-var XSDLong = term.XSDLong
-var XSDFloat = term.XSDFloat
-var XSDDouble = term.XSDDouble
-var XSDDecimal = term.XSDDecimal
-var XSDBoolean = term.XSDBoolean
-var XSDDateTime = term.XSDDateTime
-var XSDDate = term.XSDDate
-var XSDTime = term.XSDTime
-var XSDAnyURI = term.XSDAnyURI
-var RDFLangString = term.RDFLangString
+// --- Graph types (from graph/) ---
 
-// ---- store package re-exports ----
+type (
+	Graph            = graph.Graph
+	GraphOption      = graph.GraphOption
+	Resource         = graph.Resource
+	Collection       = graph.Collection
+	ConjunctiveGraph = graph.ConjunctiveGraph
+	Dataset          = graph.Dataset
+)
 
-type Store = store.Store
-type MemoryStore = store.MemoryStore
+// --- Path types (from paths/) ---
 
-// Iterator types
-type TripleIterator = iter.Seq[Triple]
-type TermIterator = iter.Seq[Term]
-type TermPairIterator = iter.Seq2[Term, Term]
-type NamespaceIterator = iter.Seq2[string, URIRef]
+type (
+	Path            = paths.Path
+	InvPath         = paths.InvPath
+	SequencePath    = paths.SequencePath
+	AlternativePath = paths.AlternativePath
+	MulPath         = paths.MulPath
+	NegatedPath     = paths.NegatedPath
+	URIRefPath      = paths.URIRefPath
+)
 
-var NewMemoryStore = store.NewMemoryStore
+// --- Plugin types (from plugin/) ---
 
-// ---- namespace package re-exports ----
+type (
+	Parser     = plugin.Parser
+	Serializer = plugin.Serializer
+)
 
-type Namespace = namespace.Namespace
-type ClosedNamespace = namespace.ClosedNamespace
-type NSManager = namespace.NSManager
+// --- Namespace constants ---
 
-var NewNamespace = namespace.NewNamespace
-var NewClosedNamespace = namespace.NewClosedNamespace
-var NewNSManager = namespace.NewNSManager
+const (
+	XSDNamespace  = term.XSDNamespace
+	RDFNamespace  = term.RDFNamespace
+	RDFSNamespace = namespace.RDFSNamespace
+	OWLNamespace  = namespace.OWLNamespace
+)
 
-var RDF = namespace.RDF
-var RDFS = namespace.RDFS
-var OWL = namespace.OWL
-var FOAF = namespace.FOAF
-var DC = namespace.DC
-var DCTERMS = namespace.DCTERMS
-var SKOS = namespace.SKOS
-var PROV = namespace.PROV
-var SH = namespace.SH
-var SOSA = namespace.SOSA
-var SSN = namespace.SSN
-var DCAT = namespace.DCAT
-var VOID = namespace.VOID
+// --- Sentinel errors ---
 
-const RDFSNamespace = namespace.RDFSNamespace
-const OWLNamespace = namespace.OWLNamespace
+var (
+	ErrInvalidIRI        = term.ErrInvalidIRI
+	ErrUnknownFormat     = term.ErrUnknownFormat
+	ErrTermNotInNamespace = term.ErrTermNotInNamespace
+	ErrInvalidCURIE      = term.ErrInvalidCURIE
+	ErrPrefixNotBound    = term.ErrPrefixNotBound
+)
 
-// ---- graph package re-exports ----
+// --- XSD datatype URIs ---
 
-type Graph = graph.Graph
-type GraphOption = graph.GraphOption
-type Resource = graph.Resource
-type Collection = graph.Collection
-type ConjunctiveGraph = graph.ConjunctiveGraph
-type Dataset = graph.Dataset
+var (
+	XSDString   = term.XSDString
+	XSDInteger  = term.XSDInteger
+	XSDInt      = term.XSDInt
+	XSDLong     = term.XSDLong
+	XSDFloat    = term.XSDFloat
+	XSDDouble   = term.XSDDouble
+	XSDDecimal  = term.XSDDecimal
+	XSDBoolean  = term.XSDBoolean
+	XSDDateTime = term.XSDDateTime
+	XSDDate     = term.XSDDate
+	XSDTime     = term.XSDTime
+	XSDAnyURI   = term.XSDAnyURI
+	RDFLangString = term.RDFLangString
+)
 
-var NewGraph = graph.NewGraph
-var WithStore = graph.WithStore
-var WithIdentifier = graph.WithIdentifier
-var WithBase = graph.WithBase
-var NewResource = graph.NewResource
-var NewCollection = graph.NewCollection
-var NewEmptyCollection = graph.NewEmptyCollection
-var NewConjunctiveGraph = graph.NewConjunctiveGraph
-var NewDataset = graph.NewDataset
+// --- Built-in namespace instances ---
 
-// ---- paths package re-exports ----
+var (
+	RDF     = namespace.RDF
+	RDFS    = namespace.RDFS
+	OWL     = namespace.OWL
+	FOAF    = namespace.FOAF
+	DC      = namespace.DC
+	DCTERMS = namespace.DCTERMS
+	SKOS    = namespace.SKOS
+	PROV    = namespace.PROV
+	SH      = namespace.SH
+	SOSA    = namespace.SOSA
+	SSN     = namespace.SSN
+	DCAT    = namespace.DCAT
+	VOID    = namespace.VOID
+)
 
-type Path = paths.Path
-type InvPath = paths.InvPath
-type SequencePath = paths.SequencePath
-type AlternativePath = paths.AlternativePath
-type MulPath = paths.MulPath
-type NegatedPath = paths.NegatedPath
-type URIRefPath = paths.URIRefPath
+// --- Term constructors ---
 
-var Inv = paths.Inv
-var Sequence = paths.Sequence
-var Alternative = paths.Alternative
-var ZeroOrMore = paths.ZeroOrMore
-var OneOrMore = paths.OneOrMore
-var ZeroOrOne = paths.ZeroOrOne
-var Negated = paths.Negated
-var AsPath = paths.AsPath
+func NewURIRef(value string) (URIRef, error)              { return term.NewURIRef(value) }
+func NewURIRefUnsafe(value string) URIRef                  { return term.NewURIRefUnsafe(value) }
+func NewURIRefWithBase(value, base string) (URIRef, error) { return term.NewURIRefWithBase(value, base) }
+func NewBNode(id ...string) BNode                          { return term.NewBNode(id...) }
+func NewLiteral(value any, opts ...LiteralOption) Literal  { return term.NewLiteral(value, opts...) }
+func NewVariable(name string) Variable                     { return term.NewVariable(name) }
+func WithLang(lang string) LiteralOption                   { return term.WithLang(lang) }
+func WithDatatype(dt URIRef) LiteralOption                 { return term.WithDatatype(dt) }
+func GoToLexical(value any) (string, URIRef)               { return term.GoToLexical(value) }
+func CompareTerm(a, b Term) int                            { return term.CompareTerm(a, b) }
+func SortTerms(terms []Term)                               { term.SortTerms(terms) }
 
-// ---- plugin package re-exports ----
+// --- Store constructors ---
 
-type Parser = plugin.Parser
-type Serializer = plugin.Serializer
+func NewMemoryStore() *MemoryStore { return store.NewMemoryStore() }
 
-var RegisterParser = plugin.RegisterParser
-var GetParser = plugin.GetParser
-var RegisterSerializer = plugin.RegisterSerializer
-var GetSerializer = plugin.GetSerializer
-var RegisterStore = plugin.RegisterStore
-var GetStore = plugin.GetStore
-var FormatFromFilename = plugin.FormatFromFilename
-var FormatFromMIME = plugin.FormatFromMIME
-var FormatFromContent = plugin.FormatFromContent
+// --- Namespace constructors ---
 
-// ---- testutil package re-exports ----
-
-// AssertGraphEqual checks that two graphs contain the same triples.
-func AssertGraphEqual(t *testing.T, expected, actual *Graph) {
-	testutil.AssertGraphEqual(t, expected, actual)
+func NewNamespace(base string) Namespace { return namespace.NewNamespace(base) }
+func NewClosedNamespace(base string, terms []string) ClosedNamespace {
+	return namespace.NewClosedNamespace(base, terms)
 }
+func NewNSManager(s Store) *NSManager { return namespace.NewNSManager(s) }
 
-// AssertGraphContains checks that the graph contains a specific triple.
-func AssertGraphContains(t *testing.T, g *Graph, s Subject, p URIRef, o Term) {
-	testutil.AssertGraphContains(t, g, s, p, o)
+// --- Graph constructors ---
+
+func NewGraph(opts ...GraphOption) *Graph                    { return graph.NewGraph(opts...) }
+func WithStore(s Store) GraphOption                          { return graph.WithStore(s) }
+func WithIdentifier(id Term) GraphOption                     { return graph.WithIdentifier(id) }
+func WithBase(base string) GraphOption                       { return graph.WithBase(base) }
+func NewResource(g *Graph, id Subject) *Resource             { return graph.NewResource(g, id) }
+func NewCollection(g *Graph, head Subject) *Collection       { return graph.NewCollection(g, head) }
+func NewEmptyCollection(g *Graph) *Collection                { return graph.NewEmptyCollection(g) }
+func NewConjunctiveGraph(opts ...GraphOption) *ConjunctiveGraph {
+	return graph.NewConjunctiveGraph(opts...)
 }
+func NewDataset(opts ...GraphOption) *Dataset { return graph.NewDataset(opts...) }
 
-// AssertGraphLen checks the number of triples in a graph.
-func AssertGraphLen(t *testing.T, g *Graph, expected int) {
-	testutil.AssertGraphLen(t, g, expected)
-}
+// --- Path constructors ---
 
+func AsPath(u URIRef) URIRefPath                       { return paths.AsPath(u) }
+func Inv(p Path) *InvPath                              { return paths.Inv(p) }
+func Sequence(ps ...Path) *SequencePath                { return paths.Sequence(ps...) }
+func Alternative(ps ...Path) *AlternativePath          { return paths.Alternative(ps...) }
+func ZeroOrMore(p Path) *MulPath                       { return paths.ZeroOrMore(p) }
+func OneOrMore(p Path) *MulPath                        { return paths.OneOrMore(p) }
+func ZeroOrOne(p Path) *MulPath                        { return paths.ZeroOrOne(p) }
+func Negated(excluded ...URIRef) *NegatedPath          { return paths.Negated(excluded...) }
+
+// --- Plugin registry ---
+
+func RegisterParser(name string, factory func() Parser)         { plugin.RegisterParser(name, factory) }
+func GetParser(name string) (Parser, bool)                      { return plugin.GetParser(name) }
+func RegisterSerializer(name string, factory func() Serializer) { plugin.RegisterSerializer(name, factory) }
+func GetSerializer(name string) (Serializer, bool)              { return plugin.GetSerializer(name) }
+func RegisterStore(name string, factory func() Store)           { plugin.RegisterStore(name, factory) }
+func GetStore(name string) (Store, bool)                        { return plugin.GetStore(name) }
+
+// --- Format detection ---
+
+func FormatFromFilename(filename string) (string, bool)    { return plugin.FormatFromFilename(filename) }
+func FormatFromMIME(contentType string) (string, bool)     { return plugin.FormatFromMIME(contentType) }
+func FormatFromContent(data []byte) (string, bool)         { return plugin.FormatFromContent(data) }

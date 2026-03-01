@@ -6,12 +6,12 @@ import (
 	"testing"
 
 	rdflibgo "github.com/tggo/goRDFlib"
+	"github.com/tggo/goRDFlib/testutil"
 )
 
 // Ported from: test/test_w3c_spec/test_nquads_w3c.py, test/test_parsers/test_nquads.py
 
 func TestNQSerializerBasic(t *testing.T) {
-	// Ported from: rdflib.plugins.serializers.nquads.NQuadsSerializer
 	g := rdflibgo.NewGraph()
 	s, _ := rdflibgo.NewURIRef("http://example.org/s")
 	p, _ := rdflibgo.NewURIRef("http://example.org/p")
@@ -28,7 +28,6 @@ func TestNQSerializerBasic(t *testing.T) {
 }
 
 func TestNQParserBasic(t *testing.T) {
-	// Ported from: rdflib.plugins.parsers.nquads.NQuadsParser
 	input := `<http://example.org/s> <http://example.org/p> "hello" <http://example.org/g> .
 <http://example.org/s> <http://example.org/p2> "world" .
 `
@@ -46,7 +45,9 @@ func TestNQParserComments(t *testing.T) {
 <http://example.org/s> <http://example.org/p> "hello" .
 `
 	g := rdflibgo.NewGraph()
-	Parse(g, strings.NewReader(input))
+	if err := Parse(g, strings.NewReader(input)); err != nil {
+		t.Fatal(err)
+	}
 	if g.Len() != 1 {
 		t.Errorf("expected 1, got %d", g.Len())
 	}
@@ -59,12 +60,129 @@ func TestNQRoundtrip(t *testing.T) {
 	g1.Add(s, p, rdflibgo.NewLiteral("hello"))
 
 	var buf bytes.Buffer
-	Serialize(g1, &buf)
+	if err := Serialize(g1, &buf); err != nil {
+		t.Fatal(err)
+	}
 
 	g2 := rdflibgo.NewGraph()
-	Parse(g2, strings.NewReader(buf.String()))
+	if err := Parse(g2, strings.NewReader(buf.String())); err != nil {
+		t.Fatal(err)
+	}
 
-	if g1.Len() != g2.Len() {
-		t.Errorf("roundtrip: %d vs %d", g1.Len(), g2.Len())
+	testutil.AssertGraphEqual(t, g1, g2)
+}
+
+// --- Graph context tests ---
+
+func TestNQParserGraphContextPreserved(t *testing.T) {
+	input := `<http://example.org/s> <http://example.org/p> "hello" <http://example.org/g1> .
+<http://example.org/s> <http://example.org/p2> "world" <http://example.org/g2> .
+<http://example.org/s> <http://example.org/p3> "no graph" .
+`
+	g := rdflibgo.NewGraph()
+	var quads []struct {
+		graph rdflibgo.Term
+	}
+	err := Parse(g, strings.NewReader(input), WithQuadHandler(func(s rdflibgo.Subject, p rdflibgo.URIRef, o rdflibgo.Term, graph rdflibgo.Term) {
+		quads = append(quads, struct{ graph rdflibgo.Term }{graph})
+	}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(quads) != 3 {
+		t.Fatalf("expected 3 quads, got %d", len(quads))
+	}
+	// First quad has graph g1
+	if u, ok := quads[0].graph.(rdflibgo.URIRef); !ok || u.Value() != "http://example.org/g1" {
+		t.Errorf("quad 0: expected g1, got %v", quads[0].graph)
+	}
+	// Second quad has graph g2
+	if u, ok := quads[1].graph.(rdflibgo.URIRef); !ok || u.Value() != "http://example.org/g2" {
+		t.Errorf("quad 1: expected g2, got %v", quads[1].graph)
+	}
+	// Third quad has no graph
+	if quads[2].graph != nil {
+		t.Errorf("quad 2: expected nil graph, got %v", quads[2].graph)
+	}
+}
+
+func TestNQParserBNodeGraphContext(t *testing.T) {
+	input := `<http://example.org/s> <http://example.org/p> "hello" _:g1 .
+`
+	g := rdflibgo.NewGraph()
+	var graphCtx rdflibgo.Term
+	err := Parse(g, strings.NewReader(input), WithQuadHandler(func(s rdflibgo.Subject, p rdflibgo.URIRef, o rdflibgo.Term, graph rdflibgo.Term) {
+		graphCtx = graph
+	}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if b, ok := graphCtx.(rdflibgo.BNode); !ok || b.Value() != "g1" {
+		t.Errorf("expected BNode g1, got %v", graphCtx)
+	}
+}
+
+// --- Negative syntax tests ---
+
+func TestNQParserMalformed(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+	}{
+		{"unterminated IRI", `<http://s <http://p> "hello" .` + "\n"},
+		{"missing dot", `<http://s> <http://p> "hello"` + "\n"},
+		{"bad escape in literal", `<http://s> <http://p> "\uZZZZ" .` + "\n"},
+		{"unterminated string", `<http://s> <http://p> "hello .` + "\n"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			g := rdflibgo.NewGraph()
+			err := Parse(g, strings.NewReader(tt.input))
+			if err == nil {
+				t.Error("expected error for malformed input")
+			}
+		})
+	}
+}
+
+// --- Escape handling tests ---
+
+func TestNQParserEscapes(t *testing.T) {
+	input := `<http://s> <http://p> "a\tb\nc\\d\"e" .
+`
+	g := rdflibgo.NewGraph()
+	if err := Parse(g, strings.NewReader(input)); err != nil {
+		t.Fatal(err)
+	}
+	s := rdflibgo.NewURIRefUnsafe("http://s")
+	p := rdflibgo.NewURIRefUnsafe("http://p")
+	v, ok := g.Value(s, &p, nil)
+	if !ok {
+		t.Fatal("expected value")
+	}
+	want := "a\tb\nc\\d\"e"
+	if v.String() != want {
+		t.Errorf("got %q, want %q", v.String(), want)
+	}
+}
+
+func TestNQParserLangAndDatatype(t *testing.T) {
+	input := `<http://s> <http://p1> "hello"@en .
+<http://s> <http://p2> "42"^^<http://www.w3.org/2001/XMLSchema#integer> .
+`
+	g := rdflibgo.NewGraph()
+	if err := Parse(g, strings.NewReader(input)); err != nil {
+		t.Fatal(err)
+	}
+	s := rdflibgo.NewURIRefUnsafe("http://s")
+	p1 := rdflibgo.NewURIRefUnsafe("http://p1")
+	v1, _ := g.Value(s, &p1, nil)
+	if lit, ok := v1.(rdflibgo.Literal); !ok || lit.Language() != "en" {
+		t.Errorf("expected lang en, got %v", v1)
+	}
+	p2 := rdflibgo.NewURIRefUnsafe("http://p2")
+	v2, _ := g.Value(s, &p2, nil)
+	if lit, ok := v2.(rdflibgo.Literal); !ok || lit.Datatype() != rdflibgo.XSDInteger {
+		t.Errorf("expected xsd:integer, got %v", v2)
 	}
 }

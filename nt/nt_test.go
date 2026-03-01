@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	rdflibgo "github.com/tggo/goRDFlib"
+	"github.com/tggo/goRDFlib/testutil"
 )
 
 // Ported from: test/test_w3c_spec/test_nt_w3c.py, test/test_nt_misc.py
@@ -254,5 +255,90 @@ func TestNTSerializerTab(t *testing.T) {
 	out := buf.String()
 	if !strings.Contains(out, `\t`) {
 		t.Errorf("expected tab escape, got:\n%s", out)
+	}
+}
+
+// --- Negative syntax tests ---
+
+func TestNTParserMalformedEscape(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+	}{
+		{"unknown escape", `<http://s> <http://p> "hello\x" .` + "\n"},
+		{"truncated \\u", `<http://s> <http://p> "\u00" .` + "\n"},
+		{"truncated \\U", `<http://s> <http://p> "\U0000" .` + "\n"},
+		{"invalid hex \\u", `<http://s> <http://p> "\uZZZZ" .` + "\n"},
+		{"unterminated string", `<http://s> <http://p> "hello .` + "\n"},
+		{"unterminated IRI", `<http://s <http://p> "hello" .` + "\n"},
+		{"missing dot", `<http://s> <http://p> "hello"` + "\n"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			g := rdflibgo.NewGraph()
+			err := Parse(g, strings.NewReader(tt.input))
+			if err == nil {
+				t.Error("expected error for malformed input")
+			}
+		})
+	}
+}
+
+func TestNTParserUnicodeEscape4(t *testing.T) {
+	g := rdflibgo.NewGraph()
+	err := Parse(g, strings.NewReader(`<http://s> <http://p> "\u0041" .`+"\n"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := rdflibgo.NewURIRefUnsafe("http://s")
+	p := rdflibgo.NewURIRefUnsafe("http://p")
+	v, _ := g.Value(s, &p, nil)
+	if v.String() != "A" {
+		t.Errorf("expected A, got %q", v.String())
+	}
+}
+
+func TestNTParserIRIWithMalformedEscape(t *testing.T) {
+	g := rdflibgo.NewGraph()
+	err := Parse(g, strings.NewReader(`<http://s/\uZZZZ> <http://p> "hello" .` + "\n"))
+	if err == nil {
+		t.Error("expected error for malformed IRI escape")
+	}
+}
+
+func TestNTRoundtripWithAssertGraphEqual(t *testing.T) {
+	g1 := rdflibgo.NewGraph()
+	s, _ := rdflibgo.NewURIRef("http://example.org/s")
+	p, _ := rdflibgo.NewURIRef("http://example.org/p")
+	g1.Add(s, p, rdflibgo.NewLiteral("hello"))
+	g1.Add(s, p, rdflibgo.NewLiteral("world", rdflibgo.WithLang("en")))
+	g1.Add(s, p, rdflibgo.NewLiteral("42", rdflibgo.WithDatatype(rdflibgo.XSDInteger)))
+
+	var buf bytes.Buffer
+	if err := Serialize(g1, &buf); err != nil {
+		t.Fatal(err)
+	}
+
+	g2 := rdflibgo.NewGraph()
+	if err := Parse(g2, strings.NewReader(buf.String())); err != nil {
+		t.Fatal(err)
+	}
+
+	testutil.AssertGraphEqual(t, g1, g2)
+}
+
+func TestNTSerializerDatatypeIRIEscaped(t *testing.T) {
+	g := rdflibgo.NewGraph()
+	s, _ := rdflibgo.NewURIRef("http://s")
+	p, _ := rdflibgo.NewURIRef("http://p")
+	g.Add(s, p, rdflibgo.NewLiteral("42", rdflibgo.WithDatatype(rdflibgo.XSDInteger)))
+
+	var buf bytes.Buffer
+	if err := Serialize(g, &buf); err != nil {
+		t.Fatal(err)
+	}
+	out := buf.String()
+	if !strings.Contains(out, "^^<http://www.w3.org/2001/XMLSchema#integer>") {
+		t.Errorf("expected escaped datatype IRI, got:\n%s", out)
 	}
 }

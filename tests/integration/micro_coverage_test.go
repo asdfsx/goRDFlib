@@ -6,6 +6,7 @@ import (
 
 	. "github.com/tggo/goRDFlib"
 	"github.com/tggo/goRDFlib/sparql"
+	"github.com/tggo/goRDFlib/testutil"
 	"github.com/tggo/goRDFlib/turtle"
 )
 
@@ -143,11 +144,11 @@ func TestAssertGraphContainsFail(t *testing.T) {
 	s, _ := NewURIRef("http://example.org/s")
 	p, _ := NewURIRef("http://example.org/p")
 	mt := &testing.T{}
-	AssertGraphContains(mt, g, s, p, NewLiteral("nope"))
+	testutil.AssertGraphContains(mt, g, s, p, NewLiteral("nope"))
 }
 
 func TestAssertGraphLenFail(t *testing.T) {
 	g := NewGraph()
 	mt := &testing.T{}
-	AssertGraphLen(mt, g, 99)
+	testutil.AssertGraphLen(mt, g, 99)
 }
