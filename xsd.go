@@ -1,15 +1,12 @@
 package rdflibgo
 
-import "fmt"
+import (
+	"fmt"
+	"strconv"
+)
 
 // XSD namespace base URI.
 const XSDNamespace = "http://www.w3.org/2001/XMLSchema#"
-
-// NewURIRefUnsafe creates a URIRef without validation. For use in init-time
-// constants and tests only. Do not use for user-provided input — use NewURIRef instead.
-func NewURIRefUnsafe(value string) URIRef {
-	return URIRef{value: value}
-}
 
 // XSD datatype constants.
 // Ported from: rdflib.namespace.XSD
@@ -34,26 +31,32 @@ const RDFNamespace = "http://www.w3.org/1999/02/22-rdf-syntax-ns#"
 // RDFLangString is the datatype for language-tagged literals per RDF 1.1.
 var RDFLangString = NewURIRefUnsafe(RDFNamespace + "langString")
 
-// GoToLexical converts a Go value to its lexical form and XSD datatype.
-// Ported from: rdflib.term — value-to-literal conversion
-func GoToLexical(value any) (string, URIRef) {
+// goToLexical is the shared implementation for converting Go values to
+// lexical form + XSD datatype. Used by both GoToLexical and NewLiteral.
+func goToLexical(value any) (string, URIRef) {
 	switch v := value.(type) {
+	case string:
+		return v, XSDString
 	case int:
-		return fmt.Sprintf("%d", v), XSDInteger
+		return strconv.Itoa(v), XSDInteger
 	case int64:
-		return fmt.Sprintf("%d", v), XSDInteger
+		return strconv.FormatInt(v, 10), XSDInteger
 	case float32:
-		return fmt.Sprintf("%g", v), XSDFloat
+		return strconv.FormatFloat(float64(v), 'g', -1, 32), XSDFloat
 	case float64:
-		return fmt.Sprintf("%g", v), XSDDouble
+		return strconv.FormatFloat(v, 'g', -1, 64), XSDDouble
 	case bool:
 		if v {
 			return "true", XSDBoolean
 		}
 		return "false", XSDBoolean
-	case string:
-		return v, XSDString
 	default:
 		return fmt.Sprintf("%v", value), XSDString
 	}
+}
+
+// GoToLexical converts a Go value to its lexical form and XSD datatype.
+// Ported from: rdflib.term — value-to-literal conversion
+func GoToLexical(value any) (string, URIRef) {
+	return goToLexical(value)
 }

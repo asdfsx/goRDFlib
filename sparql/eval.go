@@ -3,6 +3,7 @@ package sparql
 import (
 	"fmt"
 	"slices"
+	"strconv"
 	"strings"
 
 	rdflibgo "github.com/tggo/goRDFlib"
@@ -401,12 +402,12 @@ func evalBinaryOp(op string, left, right rdflibgo.Term) rdflibgo.Term {
 		if left == nil || right == nil {
 			return rdflibgo.NewLiteral(false)
 		}
-		return rdflibgo.NewLiteral(left.N3() == right.N3())
+		return rdflibgo.NewLiteral(termValuesEqual(left, right))
 	case "!=":
 		if left == nil || right == nil {
 			return rdflibgo.NewLiteral(true)
 		}
-		return rdflibgo.NewLiteral(left.N3() != right.N3())
+		return rdflibgo.NewLiteral(!termValuesEqual(left, right))
 	case "<", ">", "<=", ">=":
 		c := compareTermValues(left, right)
 		switch op {
@@ -528,4 +529,38 @@ func solutionKey(s map[string]rdflibgo.Term, vars []string) string {
 		}
 	}
 	return strings.Join(parts, "|")
+}
+
+// termValuesEqual implements SPARQL value equality (=).
+// Numeric values are compared by numeric value, plain literals by lexical form,
+// and URIRefs by IRI string. This avoids incorrect N3-based comparison.
+func termValuesEqual(a, b rdflibgo.Term) bool {
+	if a == nil || b == nil {
+		return a == nil && b == nil
+	}
+	la, aIsLit := a.(rdflibgo.Literal)
+	lb, bIsLit := b.(rdflibgo.Literal)
+
+	if aIsLit && bIsLit {
+		// Try numeric comparison first
+		fa, errA := strconv.ParseFloat(la.Lexical(), 64)
+		fb, errB := strconv.ParseFloat(lb.Lexical(), 64)
+		if errA == nil && errB == nil && isNumericDatatype(la.Datatype()) && isNumericDatatype(lb.Datatype()) {
+			return fa == fb
+		}
+		// Same datatype or both plain: compare lexical + language
+		if la.Language() != "" || lb.Language() != "" {
+			return la.Lexical() == lb.Lexical() && la.Language() == lb.Language()
+		}
+		// Compare lexical values for same or compatible datatypes
+		return la.Lexical() == lb.Lexical()
+	}
+
+	// URIRef == URIRef, BNode == BNode: use N3
+	return a.N3() == b.N3()
+}
+
+func isNumericDatatype(dt rdflibgo.URIRef) bool {
+	return dt == rdflibgo.XSDInteger || dt == rdflibgo.XSDInt || dt == rdflibgo.XSDLong ||
+		dt == rdflibgo.XSDFloat || dt == rdflibgo.XSDDouble || dt == rdflibgo.XSDDecimal
 }

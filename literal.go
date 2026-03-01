@@ -1,7 +1,6 @@
 package rdflibgo
 
 import (
-	"fmt"
 	"strconv"
 	"strings"
 )
@@ -41,33 +40,7 @@ func WithDatatype(dt URIRef) LiteralOption {
 func NewLiteral(value any, opts ...LiteralOption) Literal {
 	var lit Literal
 
-	switch v := value.(type) {
-	case string:
-		lit.lexical = v
-		lit.datatype = XSDString
-	case int:
-		lit.lexical = strconv.Itoa(v)
-		lit.datatype = XSDInteger
-	case int64:
-		lit.lexical = strconv.FormatInt(v, 10)
-		lit.datatype = XSDInteger
-	case float32:
-		lit.lexical = strconv.FormatFloat(float64(v), 'g', -1, 32)
-		lit.datatype = XSDFloat
-	case float64:
-		lit.lexical = strconv.FormatFloat(v, 'g', -1, 64)
-		lit.datatype = XSDDouble
-	case bool:
-		if v {
-			lit.lexical = "true"
-		} else {
-			lit.lexical = "false"
-		}
-		lit.datatype = XSDBoolean
-	default:
-		lit.lexical = fmt.Sprintf("%v", value)
-		lit.datatype = XSDString
-	}
+	lit.lexical, lit.datatype = goToLexical(value)
 
 	for _, opt := range opts {
 		opt(&lit)
@@ -160,7 +133,7 @@ func (l Literal) N3(ns ...NamespaceManager) string {
 	// Quote the lexical value
 	var quoted string
 	if strings.Contains(l.lexical, "\n") {
-		quoted = `"""` + escapeLiteral(l.lexical) + `"""`
+		quoted = `"""` + escapeTripleQuotedLiteral(l.lexical) + `"""`
 	} else {
 		quoted = `"` + escapeLiteral(l.lexical) + `"`
 	}
@@ -174,11 +147,22 @@ func (l Literal) N3(ns ...NamespaceManager) string {
 	return quoted
 }
 
-// Eq performs value-space comparison: two literals are Eq if they have the same
-// datatype and their parsed Go values are equal.
-// This differs from == (struct equality) which compares lexical forms exactly.
+// ValueEqual performs value-space comparison: two literals are ValueEqual if
+// they have the same datatype and their parsed Go values are equal.
+// This differs from Equal (struct equality) which compares lexical forms exactly.
 // Ported from: rdflib.term.Literal.eq
+func (l Literal) ValueEqual(other Literal) bool {
+	return l.valueEqual(other)
+}
+
+// Eq is an alias for ValueEqual.
+//
+// Deprecated: use ValueEqual for clarity.
 func (l Literal) Eq(other Literal) bool {
+	return l.valueEqual(other)
+}
+
+func (l Literal) valueEqual(other Literal) bool {
 	if l.datatype != other.datatype {
 		return false
 	}
@@ -220,4 +204,38 @@ var literalEscaper = strings.NewReplacer(
 
 func escapeLiteral(s string) string {
 	return literalEscaper.Replace(s)
+}
+
+// tripleQuotedEscaper escapes for triple-quoted strings: only backslashes and
+// sequences of 3+ consecutive quotes need escaping. Individual quotes are safe.
+var tripleQuotedEscaper = strings.NewReplacer(
+	`\`, `\\`,
+	"\n", `\n`,
+	"\r", `\r`,
+	"\t", `\t`,
+)
+
+// escapeTripleQuotedLiteral escapes a string for use inside triple-quoted N3
+// delimiters (""" ... """). Individual double-quotes are left alone; runs of
+// 3 or more consecutive quotes are broken by inserting backslash escapes.
+func escapeTripleQuotedLiteral(s string) string {
+	s = tripleQuotedEscaper.Replace(s)
+	// Break any run of 3+ consecutive double-quotes.
+	var b strings.Builder
+	consecutiveQuotes := 0
+	for _, r := range s {
+		if r == '"' {
+			consecutiveQuotes++
+			if consecutiveQuotes == 3 {
+				// Insert escape before this quote to break the run.
+				b.WriteString(`\"`)
+				consecutiveQuotes = 1 // the escaped quote starts a new run
+				continue
+			}
+		} else {
+			consecutiveQuotes = 0
+		}
+		b.WriteRune(r)
+	}
+	return b.String()
 }

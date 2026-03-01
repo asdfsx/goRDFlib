@@ -11,6 +11,9 @@ import (
 
 // NamespaceManager provides prefix lookup for compact term representations.
 type NamespaceManager interface {
+	// Prefix attempts to compact a full IRI into a prefixed (CURIE) form such
+	// as "foaf:name". It returns the compact form and true if a matching prefix
+	// binding was found, or ("", false) otherwise.
 	Prefix(uri string) (string, bool)
 }
 
@@ -105,6 +108,21 @@ func isValidIRI(s string) bool {
 	return true
 }
 
+// NewURIRefUnsafe creates a URIRef without validation. For use in init-time
+// constants and tests only. Do not use for user-provided input — use NewURIRef instead.
+//
+// Deprecated: prefer mustURIRef for new package-internal code. This remains
+// exported for backward compatibility.
+func NewURIRefUnsafe(value string) URIRef {
+	return URIRef{value: value}
+}
+
+// mustURIRef is the unexported equivalent of NewURIRefUnsafe.
+// Prefer this for new package-internal code.
+func mustURIRef(value string) URIRef {
+	return URIRef{value: value}
+}
+
 // NewURIRef creates a new URIRef, validating that it contains no forbidden characters.
 // Ported from: rdflib.term.URIRef.__new__
 func NewURIRef(value string) (URIRef, error) {
@@ -162,12 +180,20 @@ func (b BNode) N3(ns ...NamespaceManager) string {
 }
 
 // Skolemize returns a URIRef that deterministically represents this blank node.
+// The optional basepath parameter specifies the path prefix (default: ".well-known/genid/").
 // Ported from: rdflib.term.BNode.skolemize
-func (b BNode) Skolemize(authority string) URIRef {
+func (b BNode) Skolemize(authority string, basepath ...string) URIRef {
 	if !strings.HasSuffix(authority, "/") {
 		authority += "/"
 	}
-	return NewURIRefUnsafe(authority + ".well-known/genid/" + b.value)
+	bp := ".well-known/genid/"
+	if len(basepath) > 0 && basepath[0] != "" {
+		bp = basepath[0]
+		if !strings.HasSuffix(bp, "/") {
+			bp += "/"
+		}
+	}
+	return NewURIRefUnsafe(authority + bp + b.value)
 }
 
 // NewBNode creates a new BNode with a unique auto-generated identifier.
