@@ -1,6 +1,10 @@
 package rdflibgo
 
-import "testing"
+import (
+	"errors"
+	"fmt"
+	"testing"
+)
 
 // Ported from: test/test_sparql/
 
@@ -366,7 +370,6 @@ func TestSPARQLMultipleTriplePatterns(t *testing.T) {
 }
 
 func TestSPARQLTypeShorthand(t *testing.T) {
-	// Test 'a' as rdf:type in SPARQL
 	g := makeSPARQLGraph(t)
 	r, err := g.Query(`
 		PREFIX ex: <http://example.org/>
@@ -377,5 +380,232 @@ func TestSPARQLTypeShorthand(t *testing.T) {
 	}
 	if len(r.Bindings) != 3 {
 		t.Errorf("expected 3, got %d", len(r.Bindings))
+	}
+}
+
+func TestSPARQLArithmetic(t *testing.T) {
+	g := makeSPARQLGraph(t)
+	r, err := g.Query(`
+		PREFIX ex: <http://example.org/>
+		SELECT ?name ?nextAge WHERE {
+			?s ex:name ?name .
+			?s ex:age ?age .
+			BIND(?age + 1 AS ?nextAge)
+		}
+		ORDER BY ?name
+		LIMIT 1
+	`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(r.Bindings) != 1 {
+		t.Fatalf("expected 1, got %d", len(r.Bindings))
+	}
+	if r.Bindings[0]["nextAge"].String() != "31" {
+		t.Errorf("expected 31, got %v", r.Bindings[0]["nextAge"])
+	}
+}
+
+func TestSPARQLComparisonOps(t *testing.T) {
+	g := makeSPARQLGraph(t)
+	tests := []struct {
+		filter string
+		count  int
+	}{
+		{`FILTER(?age >= 30)`, 2},
+		{`FILTER(?age <= 25)`, 1},
+		{`FILTER(?age != 30)`, 2},
+		{`FILTER(?age = 30)`, 1},
+	}
+	for _, tt := range tests {
+		r, err := g.Query(`PREFIX ex: <http://example.org/> SELECT ?s WHERE { ?s ex:age ?age . ` + tt.filter + ` }`)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(r.Bindings) != tt.count {
+			t.Errorf("%s: expected %d, got %d", tt.filter, tt.count, len(r.Bindings))
+		}
+	}
+}
+
+func TestSPARQLBooleanOps(t *testing.T) {
+	g := makeSPARQLGraph(t)
+	r, err := g.Query(`
+		PREFIX ex: <http://example.org/>
+		SELECT ?name WHERE {
+			?s ex:name ?name .
+			?s ex:age ?age .
+			FILTER(?age > 20 && ?age < 35)
+		}
+	`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(r.Bindings) != 2 {
+		t.Errorf("expected 2 (Alice=30, Bob=25), got %d", len(r.Bindings))
+	}
+}
+
+func TestSPARQLOrFilter(t *testing.T) {
+	g := makeSPARQLGraph(t)
+	r, err := g.Query(`
+		PREFIX ex: <http://example.org/>
+		SELECT ?name WHERE {
+			?s ex:name ?name .
+			FILTER(?name = "Alice" || ?name = "Charlie")
+		}
+	`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(r.Bindings) != 2 {
+		t.Errorf("expected 2, got %d", len(r.Bindings))
+	}
+}
+
+func TestSPARQLNotFilter(t *testing.T) {
+	g := makeSPARQLGraph(t)
+	r, err := g.Query(`
+		PREFIX ex: <http://example.org/>
+		SELECT ?name WHERE {
+			?s ex:name ?name .
+			FILTER(!(?name = "Alice"))
+		}
+	`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(r.Bindings) != 2 {
+		t.Errorf("expected 2 (Bob, Charlie), got %d", len(r.Bindings))
+	}
+}
+
+func TestSPARQLBuiltinFunctionsExtended(t *testing.T) {
+	g := makeSPARQLGraph(t)
+	tests := []struct {
+		name   string
+		query  string
+		expect int
+	}{
+		{"STRSTARTS", `SELECT ?n WHERE { ?s ex:name ?n . FILTER(STRSTARTS(?n, "A")) }`, 1},
+		{"STRENDS", `SELECT ?n WHERE { ?s ex:name ?n . FILTER(STRENDS(?n, "e")) }`, 2},
+		{"LCASE", `SELECT ?n WHERE { ?s ex:name ?n . BIND(LCASE(?n) AS ?l) FILTER(?l = "alice") }`, 1},
+		{"STRLEN", `SELECT ?n WHERE { ?s ex:name ?n . FILTER(STRLEN(?n) > 4) }`, 2},
+		{"ISBLANK", `SELECT ?s WHERE { ?s ex:name ?n . FILTER(!ISBLANK(?s)) }`, 3},
+		{"ISLITERAL", `SELECT ?n WHERE { ?s ex:name ?n . FILTER(ISLITERAL(?n)) }`, 3},
+		{"STR", `SELECT ?n WHERE { ?s ex:name ?n . BIND(STR(?s) AS ?u) FILTER(CONTAINS(?u, "Alice")) }`, 1},
+		{"IF", `SELECT ?n WHERE { ?s ex:name ?n . ?s ex:age ?a . BIND(IF(?a > 30, "old", "young") AS ?cat) FILTER(?cat = "old") }`, 1},
+	}
+	for _, tt := range tests {
+		r, err := g.Query(`PREFIX ex: <http://example.org/> ` + tt.query)
+		if err != nil {
+			t.Fatalf("%s: %v", tt.name, err)
+		}
+		if len(r.Bindings) != tt.expect {
+			t.Errorf("%s: expected %d, got %d", tt.name, tt.expect, len(r.Bindings))
+		}
+	}
+}
+
+func TestSPARQLNumericFunctions(t *testing.T) {
+	g := makeSPARQLGraph(t)
+	r, err := g.Query(`
+		PREFIX ex: <http://example.org/>
+		SELECT ?name WHERE {
+			?s ex:name ?name .
+			?s ex:age ?age .
+			FILTER(ABS(?age - 30) <= 5)
+		}
+	`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Alice=30 (diff 0), Bob=25 (diff 5), Charlie=35 (diff 5)
+	if len(r.Bindings) != 3 {
+		t.Errorf("expected 3, got %d", len(r.Bindings))
+	}
+}
+
+func TestSPARQLCoalesce(t *testing.T) {
+	g := makeSPARQLGraph(t)
+	r, err := g.Query(`
+		PREFIX ex: <http://example.org/>
+		SELECT ?name ?friend WHERE {
+			?s ex:name ?name .
+			OPTIONAL { ?s ex:knows ?f . ?f ex:name ?friend }
+			BIND(COALESCE(?friend, "none") AS ?result)
+			FILTER(?result = "none")
+		}
+	`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(r.Bindings) != 1 {
+		t.Errorf("expected 1 (Charlie), got %d", len(r.Bindings))
+	}
+}
+
+func TestSPARQLSameTerm(t *testing.T) {
+	g := makeSPARQLGraph(t)
+	alice, _ := NewURIRef("http://example.org/Alice")
+	r, err := g.Query(`
+		PREFIX ex: <http://example.org/>
+		SELECT ?name WHERE {
+			?s ex:name ?name .
+			FILTER(SAMETERM(?s, ex:Alice))
+		}
+	`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_ = alice
+	if len(r.Bindings) != 1 || r.Bindings[0]["name"].String() != "Alice" {
+		t.Errorf("expected Alice, got %v", r.Bindings)
+	}
+}
+
+func TestSPARQLParseError(t *testing.T) {
+	g := makeSPARQLGraph(t)
+	_, err := g.Query(`NOT A VALID QUERY`)
+	if err == nil {
+		t.Error("expected parse error")
+	}
+}
+
+func TestSPARQLUnknownFormat(t *testing.T) {
+	g := NewGraph()
+	err := g.Serialize(nil, WithSerializeFormat("nonexistent"))
+	if !errors.Is(err, ErrUnknownFormat) {
+		t.Errorf("expected ErrUnknownFormat, got %v", err)
+	}
+}
+
+// --- Benchmarks ---
+
+func BenchmarkSPARQLSelectAll(b *testing.B) {
+	g := NewGraph()
+	g.Bind("ex", NewURIRefUnsafe("http://example.org/"))
+	for i := 0; i < 100; i++ {
+		s := NewURIRefUnsafe(fmt.Sprintf("http://example.org/s%d", i))
+		p, _ := NewURIRef("http://example.org/name")
+		g.Add(s, p, NewLiteral(fmt.Sprintf("name%d", i)))
+	}
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		g.Query(`PREFIX ex: <http://example.org/> SELECT * WHERE { ?s ex:name ?name }`)
+	}
+}
+
+func BenchmarkSPARQLFilter(b *testing.B) {
+	g := NewGraph()
+	g.Bind("ex", NewURIRefUnsafe("http://example.org/"))
+	p, _ := NewURIRef("http://example.org/val")
+	for i := 0; i < 100; i++ {
+		s := NewURIRefUnsafe(fmt.Sprintf("http://example.org/s%d", i))
+		g.Add(s, p, NewLiteral(i))
+	}
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		g.Query(`PREFIX ex: <http://example.org/> SELECT ?s WHERE { ?s ex:val ?v . FILTER(?v > 50) }`)
 	}
 }
