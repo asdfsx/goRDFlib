@@ -1,6 +1,9 @@
 package rdflibgo
 
-import "testing"
+import (
+	"errors"
+	"testing"
+)
 
 // Ported from: test/test_namespace/
 
@@ -121,11 +124,56 @@ func TestNSManagerExpandCURIE(t *testing.T) {
 }
 
 func TestNSManagerExpandCURIEUnknown(t *testing.T) {
-	// Ported from: rdflib.namespace.NamespaceManager.expand_curie — unknown prefix
 	mgr := NewNSManager(NewMemoryStore())
 	_, err := mgr.ExpandCURIE("unknown:term")
 	if err == nil {
 		t.Error("expected error for unknown prefix")
+	}
+	if !errors.Is(err, ErrPrefixNotBound) {
+		t.Errorf("expected ErrPrefixNotBound, got %v", err)
+	}
+}
+
+func TestNSManagerExpandCURIEInvalid(t *testing.T) {
+	mgr := NewNSManager(NewMemoryStore())
+	_, err := mgr.ExpandCURIE("nocolon")
+	if err == nil {
+		t.Error("expected error for invalid CURIE")
+	}
+	if !errors.Is(err, ErrInvalidCURIE) {
+		t.Errorf("expected ErrInvalidCURIE, got %v", err)
+	}
+}
+
+func TestClosedNamespaceSentinelError(t *testing.T) {
+	ns := NewClosedNamespace("http://example.org/", []string{"Foo"})
+	_, err := ns.Term("Unknown")
+	if !errors.Is(err, ErrTermNotInNamespace) {
+		t.Errorf("expected ErrTermNotInNamespace, got %v", err)
+	}
+}
+
+func TestClosedNamespaceMustTermPanics(t *testing.T) {
+	ns := NewClosedNamespace("http://example.org/", []string{"Foo"})
+	defer func() {
+		if r := recover(); r == nil {
+			t.Error("expected panic for MustTerm with unknown term")
+		}
+	}()
+	ns.MustTerm("Unknown")
+}
+
+func TestNamespaceURIRef(t *testing.T) {
+	ns := NewNamespace("http://example.org/")
+	if ns.URIRef().Value() != "http://example.org/" {
+		t.Error("wrong URIRef")
+	}
+}
+
+func TestClosedNamespaceBase(t *testing.T) {
+	ns := NewClosedNamespace("http://example.org/", []string{"Foo"})
+	if ns.Base() != "http://example.org/" {
+		t.Error("wrong base")
 	}
 }
 

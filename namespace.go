@@ -61,7 +61,7 @@ func (ns ClosedNamespace) Term(name string) (URIRef, error) {
 	if u, ok := ns.terms[name]; ok {
 		return u, nil
 	}
-	return URIRef{}, fmt.Errorf("term %q not in closed namespace %s", name, ns.base)
+	return URIRef{}, fmt.Errorf("%w: %q in %s", ErrTermNotInNamespace, name, ns.base)
 }
 
 // MustTerm panics if the term is not defined. For use with known-good constants.
@@ -133,6 +133,8 @@ func (m *NSManager) QName(uri string) (string, error) {
 }
 
 // ComputeQName splits a URI into prefix, namespace, and local name.
+// If no prefix exists for the namespace, one is auto-generated (ns1, ns2, ...).
+// Thread-safe: the generate-and-bind sequence is atomic.
 // Ported from: rdflib.namespace.NamespaceManager.compute_qname
 func (m *NSManager) ComputeQName(uri string) (prefix, ns, local string, err error) {
 	m.mu.RLock()
@@ -154,17 +156,22 @@ func (m *NSManager) ComputeQName(uri string) (prefix, ns, local string, err erro
 	if p, ok := m.store.Prefix(nsRef); ok {
 		prefix = p
 	} else {
-		// Auto-generate prefix
+		// Auto-generate prefix — atomic: hold lock through generate + bind
 		m.mu.Lock()
-		for {
-			m.genID++
-			prefix = fmt.Sprintf("ns%d", m.genID)
-			if _, exists := m.store.Namespace(prefix); !exists {
-				break
+		// Double-check after acquiring write lock
+		if p, ok := m.store.Prefix(nsRef); ok {
+			prefix = p
+		} else {
+			for {
+				m.genID++
+				prefix = fmt.Sprintf("ns%d", m.genID)
+				if _, exists := m.store.Namespace(prefix); !exists {
+					break
+				}
 			}
+			m.store.Bind(prefix, nsRef)
 		}
 		m.mu.Unlock()
-		m.store.Bind(prefix, nsRef)
 	}
 
 	m.mu.Lock()
@@ -179,11 +186,11 @@ func (m *NSManager) ComputeQName(uri string) (prefix, ns, local string, err erro
 func (m *NSManager) ExpandCURIE(curie string) (URIRef, error) {
 	parts := strings.SplitN(curie, ":", 2)
 	if len(parts) != 2 {
-		return URIRef{}, fmt.Errorf("invalid CURIE: %q", curie)
+		return URIRef{}, fmt.Errorf("%w: %q", ErrInvalidCURIE, curie)
 	}
 	ns, ok := m.store.Namespace(parts[0])
 	if !ok {
-		return URIRef{}, fmt.Errorf("prefix %q not bound", parts[0])
+		return URIRef{}, fmt.Errorf("%w: %q", ErrPrefixNotBound, parts[0])
 	}
 	return NewURIRefUnsafe(ns.Value() + parts[1]), nil
 }
