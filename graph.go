@@ -3,6 +3,7 @@ package rdflibgo
 import (
 	"fmt"
 	"io"
+	"sync"
 )
 
 // Graph is an RDF graph backed by a Store.
@@ -379,19 +380,28 @@ type Serializer interface {
 	Serialize(g *Graph, w io.Writer, base string) error
 }
 
-// Format registry
+// Format registry — protected by registryMu for concurrent safety.
+// Registration typically happens in init() functions; the mutex protects
+// against concurrent lookup during parsing/serialization.
 var (
+	registryMu  sync.RWMutex
 	parsers     = make(map[string]func() Parser)
 	serializers = make(map[string]func() Serializer)
 )
 
 // RegisterParser registers a parser factory for a format name.
+// Safe for concurrent use.
 func RegisterParser(format string, factory func() Parser) {
+	registryMu.Lock()
+	defer registryMu.Unlock()
 	parsers[format] = factory
 }
 
 // RegisterSerializer registers a serializer factory for a format name.
+// Safe for concurrent use.
 func RegisterSerializer(format string, factory func() Serializer) {
+	registryMu.Lock()
+	defer registryMu.Unlock()
 	serializers[format] = factory
 }
 
@@ -420,9 +430,11 @@ func (g *Graph) Parse(r io.Reader, opts ...ParseOption) error {
 	for _, opt := range opts {
 		opt(cfg)
 	}
+	registryMu.RLock()
 	factory, ok := parsers[cfg.format]
+	registryMu.RUnlock()
 	if !ok {
-		return fmt.Errorf("unknown parser format: %q", cfg.format)
+		return fmt.Errorf("%w: parser %q", ErrUnknownFormat, cfg.format)
 	}
 	base := cfg.base
 	if base == "" {
@@ -456,9 +468,11 @@ func (g *Graph) Serialize(w io.Writer, opts ...SerializeOption) error {
 	for _, opt := range opts {
 		opt(cfg)
 	}
+	registryMu.RLock()
 	factory, ok := serializers[cfg.format]
+	registryMu.RUnlock()
 	if !ok {
-		return fmt.Errorf("unknown serializer format: %q", cfg.format)
+		return fmt.Errorf("%w: serializer %q", ErrUnknownFormat, cfg.format)
 	}
 	base := cfg.base
 	if base == "" {

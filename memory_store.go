@@ -3,7 +3,7 @@ package rdflibgo
 import "sync"
 
 // MemoryStore is a thread-safe in-memory triple store with 3 indices (SPO, POS, OSP).
-// Ported from: rdflib.plugins.stores.memory.SimpleMemory (non-context-aware variant)
+// Ported from: rdflib.plugins.stores.memory.SimpleMemory
 type MemoryStore struct {
 	mu sync.RWMutex
 
@@ -32,120 +32,122 @@ func NewMemoryStore() *MemoryStore {
 	}
 }
 
-func (m *MemoryStore) ContextAware() bool      { return false }
-func (m *MemoryStore) TransactionAware() bool   { return false }
+// ContextAware reports whether this store supports named graphs.
+func (m *MemoryStore) ContextAware() bool { return false }
+
+// TransactionAware reports whether this store supports transactions.
+func (m *MemoryStore) TransactionAware() bool { return false }
 
 // Add inserts a triple into the store.
 // Ported from: rdflib.plugins.stores.memory.SimpleMemory.add
 func (m *MemoryStore) Add(t Triple, context Term) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
+	m.addLocked(t)
+}
 
+// addLocked inserts a triple without acquiring the lock. Caller must hold m.mu.Lock().
+func (m *MemoryStore) addLocked(t Triple) {
 	sk, pk, ok := termKey(t.Subject), termKey(t.Predicate), termKey(t.Object)
 
 	// Check if already exists
 	if po, exists := m.spo[sk]; exists {
 		if o, exists := po[pk]; exists {
 			if _, exists := o[ok]; exists {
-				return // already present
+				return
 			}
 		}
 	}
 
-	// Insert into SPO
-	if m.spo[sk] == nil {
-		m.spo[sk] = make(map[string]map[string]Triple)
-	}
-	if m.spo[sk][pk] == nil {
-		m.spo[sk][pk] = make(map[string]Triple)
-	}
-	m.spo[sk][pk][ok] = t
-
-	// Insert into POS
-	if m.pos[pk] == nil {
-		m.pos[pk] = make(map[string]map[string]Triple)
-	}
-	if m.pos[pk][ok] == nil {
-		m.pos[pk][ok] = make(map[string]Triple)
-	}
-	m.pos[pk][ok][sk] = t
-
-	// Insert into OSP
-	if m.osp[ok] == nil {
-		m.osp[ok] = make(map[string]map[string]Triple)
-	}
-	if m.osp[ok][sk] == nil {
-		m.osp[ok][sk] = make(map[string]Triple)
-	}
-	m.osp[ok][sk][pk] = t
-
+	ensureInsert(m.spo, sk, pk, ok, t)
+	ensureInsert(m.pos, pk, ok, sk, t)
+	ensureInsert(m.osp, ok, sk, pk, t)
 	m.count++
 }
 
-// AddN batch-adds quads.
+// ensureInsert inserts t into a 3-level nested map, creating intermediate maps as needed.
+func ensureInsert(idx map[string]map[string]map[string]Triple, k1, k2, k3 string, t Triple) {
+	if idx[k1] == nil {
+		idx[k1] = make(map[string]map[string]Triple)
+	}
+	if idx[k1][k2] == nil {
+		idx[k1][k2] = make(map[string]Triple)
+	}
+	idx[k1][k2][k3] = t
+}
+
+// AddN atomically batch-adds quads.
+// Ported from: rdflib.store.Store.addN
 func (m *MemoryStore) AddN(quads []Quad) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	for _, q := range quads {
-		m.Add(q.Triple, q.Graph)
+		m.addLocked(q.Triple)
 	}
 }
 
 // Remove deletes triples matching the pattern.
+// The match and delete are performed under a single write lock to avoid TOCTOU races.
 // Ported from: rdflib.plugins.stores.memory.SimpleMemory.remove
 func (m *MemoryStore) Remove(pattern TriplePattern, context Term) {
-	// Collect matches first, then delete (avoid modifying during iteration)
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	// Collect matches under the same lock
 	var toRemove []Triple
-	m.Triples(pattern, context)(func(t Triple) bool {
+	m.triplesLocked(pattern)(func(t Triple) bool {
 		toRemove = append(toRemove, t)
 		return true
 	})
 
-	m.mu.Lock()
-	defer m.mu.Unlock()
-
 	for _, t := range toRemove {
-		sk, pk, ok := termKey(t.Subject), termKey(t.Predicate), termKey(t.Object)
+		m.removeLocked(t)
+	}
+}
 
-		// Remove from SPO
-		if po, exists := m.spo[sk]; exists {
-			if o, exists := po[pk]; exists {
+// removeLocked removes a single triple from all indices. Caller must hold m.mu.Lock().
+func (m *MemoryStore) removeLocked(t Triple) {
+	sk, pk, ok := termKey(t.Subject), termKey(t.Predicate), termKey(t.Object)
+
+	if po, exists := m.spo[sk]; exists {
+		if o, exists := po[pk]; exists {
+			if _, exists := o[ok]; exists {
 				delete(o, ok)
 				if len(o) == 0 {
 					delete(po, pk)
 				}
-			}
-			if len(po) == 0 {
-				delete(m.spo, sk)
+				if len(po) == 0 {
+					delete(m.spo, sk)
+				}
 			}
 		}
+	}
 
-		// Remove from POS
-		if os, exists := m.pos[pk]; exists {
-			if s, exists := os[ok]; exists {
-				delete(s, sk)
-				if len(s) == 0 {
-					delete(os, ok)
-				}
+	if os, exists := m.pos[pk]; exists {
+		if s, exists := os[ok]; exists {
+			delete(s, sk)
+			if len(s) == 0 {
+				delete(os, ok)
 			}
 			if len(os) == 0 {
 				delete(m.pos, pk)
 			}
 		}
+	}
 
-		// Remove from OSP
-		if sp, exists := m.osp[ok]; exists {
-			if p, exists := sp[sk]; exists {
-				delete(p, pk)
-				if len(p) == 0 {
-					delete(sp, sk)
-				}
+	if sp, exists := m.osp[ok]; exists {
+		if p, exists := sp[sk]; exists {
+			delete(p, pk)
+			if len(p) == 0 {
+				delete(sp, sk)
 			}
 			if len(sp) == 0 {
 				delete(m.osp, ok)
 			}
 		}
-
-		m.count--
 	}
+
+	m.count--
 }
 
 // Triples returns matching triples.
@@ -154,14 +156,19 @@ func (m *MemoryStore) Triples(pattern TriplePattern, context Term) TripleIterato
 	return func(yield func(Triple) bool) {
 		m.mu.RLock()
 		defer m.mu.RUnlock()
+		m.triplesLocked(pattern)(yield)
+	}
+}
 
+// triplesLocked returns matching triples without acquiring locks. Caller must hold at least RLock.
+func (m *MemoryStore) triplesLocked(pattern TriplePattern) TripleIterator {
+	return func(yield func(Triple) bool) {
 		sk := optTermKey(pattern.Subject)
 		pk := optPredKey(pattern.Predicate)
 		ok := optTermKey(pattern.Object)
 
 		switch {
 		case sk != "" && pk != "" && ok != "":
-			// Exact lookup
 			if po, exists := m.spo[sk]; exists {
 				if o, exists := po[pk]; exists {
 					if t, exists := o[ok]; exists {
@@ -171,7 +178,6 @@ func (m *MemoryStore) Triples(pattern TriplePattern, context Term) TripleIterato
 			}
 
 		case sk != "":
-			// Subject bound → use SPO index
 			if po, exists := m.spo[sk]; exists {
 				for pk2, o := range po {
 					if pk != "" && pk2 != pk {
@@ -189,7 +195,6 @@ func (m *MemoryStore) Triples(pattern TriplePattern, context Term) TripleIterato
 			}
 
 		case pk != "":
-			// Predicate bound → use POS index
 			if os, exists := m.pos[pk]; exists {
 				for ok2, s := range os {
 					if ok != "" && ok2 != ok {
@@ -207,7 +212,6 @@ func (m *MemoryStore) Triples(pattern TriplePattern, context Term) TripleIterato
 			}
 
 		case ok != "":
-			// Object bound → use OSP index
 			if sp, exists := m.osp[ok]; exists {
 				for sk2, p := range sp {
 					if sk != "" && sk2 != sk {
@@ -225,7 +229,6 @@ func (m *MemoryStore) Triples(pattern TriplePattern, context Term) TripleIterato
 			}
 
 		default:
-			// No constraints → iterate all from SPO
 			for _, po := range m.spo {
 				for _, o := range po {
 					for _, t := range o {
