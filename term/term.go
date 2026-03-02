@@ -109,11 +109,8 @@ func isValidIRI(s string) bool {
 	return true
 }
 
-// NewURIRefUnsafe creates a URIRef without validation. For use in init-time
-// constants and tests only. Do not use for user-provided input — use NewURIRef instead.
-//
-// Deprecated: prefer MustURIRef for new package-internal code. This remains
-// exported for backward compatibility.
+// NewURIRefUnsafe creates a URIRef without validation.
+// Use for trusted/internal IRIs only. For user-provided input, use NewURIRef.
 func NewURIRefUnsafe(value string) URIRef {
 	return URIRef{value: value, key: "U:" + value}
 }

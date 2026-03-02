@@ -1,10 +1,7 @@
 package shacl
 
 import (
-	"fmt"
 	"strconv"
-
-	
 )
 
 // MinCountConstraint implements sh:minCount.
@@ -39,12 +36,12 @@ func (c *MaxCountConstraint) Evaluate(ctx *evalContext, shape *Shape, focusNode 
 	return nil
 }
 
-// parseInt parses an integer from an RDF term. Panics on invalid values
-// since SHACL shape definitions must contain valid integers.
+// parseInt parses an integer from an RDF term.
+// Returns 0 if the value is not a valid integer.
 func parseInt(t Term) int {
 	v, err := strconv.Atoi(t.Value())
 	if err != nil {
-		panic(fmt.Sprintf("shacl: invalid integer in shape definition: %q: %v", t.Value(), err))
+		return 0
 	}
 	return v
 }

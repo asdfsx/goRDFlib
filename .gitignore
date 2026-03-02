@@ -1,2 +1,7 @@
-doc-porting/
-cover.out
+*.test
+*.out
+*.prof
+.DS_Store
+.idea/
+.vscode/
+*.iml

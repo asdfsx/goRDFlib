@@ -4,6 +4,7 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"sort"
 
 	"github.com/tggo/goRDFlib/shacl"
@@ -56,14 +57,14 @@ var invalidData = `
 func main() {
 	shapesGraph, err := shacl.LoadTurtleString(shapesData, "")
 	if err != nil {
-		panic(err)
+		log.Fatal(err)
 	}
 
 	// Validate conforming data.
 	fmt.Println("=== Valid data ===")
 	dataGraph, err := shacl.LoadTurtleString(validData, "")
 	if err != nil {
-		panic(err)
+		log.Fatal(err)
 	}
 	report := shacl.Validate(dataGraph, shapesGraph)
 	fmt.Printf("Conforms: %v\n", report.Conforms)
@@ -73,7 +74,7 @@ func main() {
 	fmt.Println("\n=== Invalid data ===")
 	dataGraph2, err := shacl.LoadTurtleString(invalidData, "")
 	if err != nil {
-		panic(err)
+		log.Fatal(err)
 	}
 	report2 := shacl.Validate(dataGraph2, shapesGraph)
 	fmt.Printf("Conforms: %v\n", report2.Conforms)

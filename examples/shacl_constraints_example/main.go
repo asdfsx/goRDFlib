@@ -4,6 +4,7 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"sort"
 
 	"github.com/tggo/goRDFlib/shacl"
@@ -81,11 +82,11 @@ ex:Office
 func main() {
 	shapes, err := shacl.LoadTurtleString(shapesData, "")
 	if err != nil {
-		panic(err)
+		log.Fatal(err)
 	}
 	data, err := shacl.LoadTurtleString(dataGraph, "")
 	if err != nil {
-		panic(err)
+		log.Fatal(err)
 	}
 
 	report := shacl.Validate(data, shapes)

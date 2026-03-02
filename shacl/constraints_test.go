@@ -830,26 +830,22 @@ func TestQualifiedValueShapeConstraint(t *testing.T) {
 
 // --- NewPatternConstraint panic ---
 
-func TestNewPatternConstraint_InvalidPanics(t *testing.T) {
+func TestNewPatternConstraint_InvalidReturnsNil(t *testing.T) {
 	t.Parallel()
-	defer func() {
-		if r := recover(); r == nil {
-			t.Fatal("expected panic for invalid regex")
-		}
-	}()
-	NewPatternConstraint("[invalid", "")
+	c := NewPatternConstraint("[invalid", "")
+	if c != nil {
+		t.Fatal("expected nil for invalid regex")
+	}
 }
 
 // --- parseInt panic ---
 
-func TestParseInt_InvalidPanics(t *testing.T) {
+func TestParseInt_InvalidReturnsZero(t *testing.T) {
 	t.Parallel()
-	defer func() {
-		if r := recover(); r == nil {
-			t.Fatal("expected panic for invalid integer")
-		}
-	}()
-	parseInt(Literal("not-a-number", "", ""))
+	v := parseInt(Literal("not-a-number", "", ""))
+	if v != 0 {
+		t.Fatalf("expected 0 for invalid integer, got %d", v)
+	}
 }
 
 // --- LessThan IRI fallback ---

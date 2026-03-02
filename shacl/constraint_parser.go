@@ -50,7 +50,9 @@ func parseConstraints(g *Graph, s *Shape, shapes map[string]*Shape) []Constraint
 		if fVals := g.Objects(id, IRI(SH+"flags")); len(fVals) > 0 {
 			flags = fVals[0].Value()
 		}
-		result = append(result, NewPatternConstraint(v.Value(), flags))
+		if c := NewPatternConstraint(v.Value(), flags); c != nil {
+			result = append(result, c)
+		}
 	}
 
 	for _, v := range g.Objects(id, IRI(SH+"languageIn")) {

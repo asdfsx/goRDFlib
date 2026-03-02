@@ -1,7 +1,6 @@
 package shacl
 
 import (
-	"fmt"
 	"regexp"
 	"unicode/utf8"
 
@@ -62,8 +61,7 @@ type PatternConstraint struct {
 }
 
 // NewPatternConstraint creates a PatternConstraint with a pre-compiled regex.
-// Panics if the pattern is invalid, since malformed patterns in shape definitions
-// are authoring errors.
+// Returns nil if the pattern is invalid.
 func NewPatternConstraint(pattern, flags string) *PatternConstraint {
 	pat := pattern
 	if flags != "" {
@@ -71,7 +69,7 @@ func NewPatternConstraint(pattern, flags string) *PatternConstraint {
 	}
 	re, err := regexp.Compile(pat)
 	if err != nil {
-		panic(fmt.Sprintf("shacl: invalid sh:pattern %q with flags %q: %v", pattern, flags, err))
+		return nil
 	}
 	return &PatternConstraint{Pattern: pattern, Flags: flags, re: re}
 }
