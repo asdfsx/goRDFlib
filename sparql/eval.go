@@ -291,6 +291,21 @@ func evalAggregate(fe *FuncExpr, group []map[string]rdflibgo.Term, prefixes map[
 	}
 
 	if fe.Distinct {
+		if fe.Star {
+			// For COUNT(DISTINCT *), deduplicate based on full solution rows
+			seen := make(map[string]bool)
+			count := 0
+			for _, s := range group {
+				k := solutionKey(s, nil)
+				if !seen[k] {
+					seen[k] = true
+					count++
+				}
+			}
+			if fe.Name == "COUNT" {
+				return rdflibgo.NewLiteral(count, rdflibgo.WithDatatype(rdflibgo.XSDInteger))
+			}
+		}
 		seen := make(map[string]bool)
 		var unique []rdflibgo.Term
 		for _, v := range vals {

@@ -164,6 +164,14 @@ func evalFunc(name string, args []Expr, bindings map[string]rdflibgo.Term, prefi
 	case "REPLACE":
 		vals := evalArgs()
 		if len(vals) >= 3 {
+			// REPLACE requires string literal input
+			if l, ok := vals[0].(rdflibgo.Literal); ok {
+				if isNumericDatatype(l.Datatype()) {
+					return nil // type error
+				}
+			} else {
+				return nil // non-literal
+			}
 			pattern := termString(vals[1])
 			replacement := termString(vals[2])
 			flags := ""
@@ -308,7 +316,10 @@ func evalFunc(name string, args []Expr, bindings map[string]rdflibgo.Term, prefi
 		}
 	case "STRBEFORE":
 		vals := evalArgs()
-		if len(vals) == 2 {
+		if len(vals) == 2 && vals[0] != nil && vals[1] != nil {
+			if !strArgCompatible(vals[0], vals[1]) {
+				return nil
+			}
 			s := termString(vals[0])
 			arg := termString(vals[1])
 			if arg == "" {
@@ -322,7 +333,10 @@ func evalFunc(name string, args []Expr, bindings map[string]rdflibgo.Term, prefi
 		}
 	case "STRAFTER":
 		vals := evalArgs()
-		if len(vals) == 2 {
+		if len(vals) == 2 && vals[0] != nil && vals[1] != nil {
+			if !strArgCompatible(vals[0], vals[1]) {
+				return nil
+			}
 			s := termString(vals[0])
 			arg := termString(vals[1])
 			if arg == "" {
@@ -519,6 +533,32 @@ func stringResult(s string, source rdflibgo.Term) rdflibgo.Literal {
 		}
 	}
 	return rdflibgo.NewLiteral(s)
+}
+
+// strArgCompatible checks if two string arguments are type-compatible per SPARQL spec.
+// Compatible if: both simple literals, or both have same language, or one is simple and other has lang.
+func strArgCompatible(a, b rdflibgo.Term) bool {
+	la, aLit := a.(rdflibgo.Literal)
+	lb, bLit := b.(rdflibgo.Literal)
+	if !aLit || !bLit {
+		return false // non-literals are incompatible
+	}
+	aLang := la.Language()
+	bLang := lb.Language()
+	// If both have language tags, they must match
+	if aLang != "" && bLang != "" {
+		return strings.EqualFold(aLang, bLang)
+	}
+	// If one has a typed datatype (not xsd:string) and other has lang, incompatible
+	aDt := la.Datatype()
+	bDt := lb.Datatype()
+	if aLang != "" && bDt != rdflibgo.XSDString && bDt.Value() != "" {
+		return false
+	}
+	if bLang != "" && aDt != rdflibgo.XSDString && aDt.Value() != "" {
+		return false
+	}
+	return true
 }
 
 func encodeForURI(s string) string {
