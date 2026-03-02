@@ -26,6 +26,7 @@ type sparqlParser struct {
 	input    string
 	pos      int
 	prefixes map[string]string
+	bnodeCount int
 }
 
 func (p *sparqlParser) parse() (*ParsedQuery, error) {
@@ -638,7 +639,19 @@ func (p *sparqlParser) parseSubQuery() (*ParsedQuery, error) {
 
 func (p *sparqlParser) parseTriplePatterns() ([]Triple, error) {
 	var triples []Triple
-	subj := p.readTermOrVar()
+	p.skipWS()
+	// Handle [ pred obj ; ... ] as subject
+	var subj string
+	if p.pos < len(p.input) && p.input[p.pos] == '[' {
+		bnode, extraTriples, err := p.parseBnodePropertyListTriples()
+		if err != nil {
+			return nil, err
+		}
+		subj = bnode
+		triples = append(triples, extraTriples...)
+	} else {
+		subj = p.readTermOrVar()
+	}
 	p.skipWS()
 
 	for {
@@ -654,7 +667,18 @@ func (p *sparqlParser) parseTriplePatterns() ([]Triple, error) {
 
 		// Object list
 		for {
-			obj := p.readTermOrVar()
+			p.skipWS()
+			var obj string
+			if p.pos < len(p.input) && p.input[p.pos] == '[' {
+				bnode, extraTriples, err := p.parseBnodePropertyListTriples()
+				if err != nil {
+					return nil, err
+				}
+				obj = bnode
+				triples = append(triples, extraTriples...)
+			} else {
+				obj = p.readTermOrVar()
+			}
 			if obj == "" {
 				return nil, p.errorf("expected object")
 			}
@@ -1663,16 +1687,18 @@ afterString:
 }
 
 // readBlankNodePropertyList handles [ pred obj ; ... ] syntax.
-// Returns a blank node variable name and queues the triples.
+// Returns a fresh blank node variable name. The caller should use
+// parseBnodePropertyList to get the additional triples.
 func (p *sparqlParser) readBlankNodePropertyList() string {
-	// For now, generate a unique blank node and skip the content
+	p.bnodeCount++
+	bnode := fmt.Sprintf("?_bnode%d", p.bnodeCount)
 	p.pos++ // skip [
 	p.skipWS()
 	if p.pos < len(p.input) && p.input[p.pos] == ']' {
 		p.pos++
-		return "?_bnode" // anonymous blank node
+		return bnode
 	}
-	// Skip everything until matching ]
+	// Skip to matching ] — triples will be handled by parseBnodeTriples
 	depth := 1
 	for p.pos < len(p.input) && depth > 0 {
 		if p.input[p.pos] == '[' {
@@ -1682,7 +1708,66 @@ func (p *sparqlParser) readBlankNodePropertyList() string {
 		}
 		p.pos++
 	}
-	return "?_bnode" // simplified - not fully correct
+	return bnode
+}
+
+// parseBnodePropertyListTriples parses [ pred obj ; ... ] and returns the bnode var and extra triples.
+func (p *sparqlParser) parseBnodePropertyListTriples() (string, []Triple, error) {
+	p.bnodeCount++
+	bnode := fmt.Sprintf("?_bnode%d", p.bnodeCount)
+	p.pos++ // skip [
+	p.skipWS()
+	if p.pos < len(p.input) && p.input[p.pos] == ']' {
+		p.pos++
+		return bnode, nil, nil
+	}
+
+	var triples []Triple
+	for {
+		p.skipWS()
+		if p.pos >= len(p.input) || p.input[p.pos] == ']' {
+			if p.pos < len(p.input) {
+				p.pos++
+			}
+			break
+		}
+		pred, predPath, err := p.parsePredicateOrPath()
+		if err != nil {
+			return bnode, nil, err
+		}
+		if pred == "" && predPath == nil {
+			break
+		}
+		p.skipWS()
+		for {
+			obj := p.readTermOrVar()
+			if obj == "" {
+				break
+			}
+			t := Triple{Subject: bnode, Predicate: pred, Object: obj}
+			if predPath != nil {
+				t.PredicatePath = predPath
+			}
+			triples = append(triples, t)
+			p.skipWS()
+			if p.pos < len(p.input) && p.input[p.pos] == ',' {
+				p.pos++
+				p.skipWS()
+				continue
+			}
+			break
+		}
+		p.skipWS()
+		if p.pos < len(p.input) && p.input[p.pos] == ';' {
+			p.pos++
+			continue
+		}
+		if p.pos < len(p.input) && p.input[p.pos] == ']' {
+			p.pos++
+			break
+		}
+	}
+	return bnode, triples, nil
 }
 
 // readPNLocal reads the local part of a prefixed name (after the colon).
