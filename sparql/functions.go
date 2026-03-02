@@ -277,12 +277,28 @@ func evalFunc(name string, args []Expr, bindings map[string]rdflibgo.Term, prefi
 	// String constructors
 	case "STRLANG":
 		vals := evalArgs()
-		if len(vals) == 2 {
+		if len(vals) == 2 && vals[0] != nil {
+			// STRLANG requires a simple literal (no language, no datatype other than xsd:string)
+			if l, ok := vals[0].(rdflibgo.Literal); ok {
+				if l.Language() != "" {
+					return nil // type error
+				}
+				dt := l.Datatype()
+				if dt != rdflibgo.XSDString && dt.Value() != "" {
+					return nil // type error
+				}
+			}
 			return rdflibgo.NewLiteral(termString(vals[0]), rdflibgo.WithLang(termString(vals[1])))
 		}
 	case "STRDT":
 		vals := evalArgs()
-		if len(vals) == 2 {
+		if len(vals) == 2 && vals[0] != nil {
+			// STRDT requires a simple literal
+			if l, ok := vals[0].(rdflibgo.Literal); ok {
+				if l.Language() != "" {
+					return nil // type error
+				}
+			}
 			if u, ok := vals[1].(rdflibgo.URIRef); ok {
 				return rdflibgo.NewLiteral(termString(vals[0]), rdflibgo.WithDatatype(u))
 			}

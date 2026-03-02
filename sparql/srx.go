@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"encoding/xml"
 	"io"
+	"fmt"
 	"strings"
 
 	rdflibgo "github.com/tggo/goRDFlib"
@@ -187,18 +188,14 @@ func bindingKey(row map[string]rdflibgo.Term) string {
 			// Normalize numeric values for comparison
 			if l, ok := v.(rdflibgo.Literal); ok && isNumericDatatype(l.Datatype()) {
 				f := toFloat64(v)
-				if f == float64(int(f)) {
-					val = strings.TrimRight(strings.TrimRight(rdflibgo.NewLiteral(f).N3(), "0"), ".")
-				} else {
-					val = v.N3()
-				}
+				// Use a canonical numeric form regardless of datatype
+				val = fmt.Sprintf("NUM:%g", f)
 			} else {
 				val = v.N3()
 			}
 		}
 		parts = append(parts, k+"="+val)
 	}
-	// Sort for deterministic key
 	sortStrings(parts)
 	return strings.Join(parts, "|")
 }
