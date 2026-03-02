@@ -148,6 +148,7 @@ type srjValue struct {
 
 // ResultsEqual compares two SPARQL SELECT results for set equality of bindings.
 // Variable order doesn't matter. Binding order doesn't matter.
+// BNode labels are normalized per-result to allow cross-result comparison.
 func ResultsEqual(a, b *Result) bool {
 	if a.Type != b.Type {
 		return false
@@ -159,14 +160,16 @@ func ResultsEqual(a, b *Result) bool {
 		return false
 	}
 
-	// Build multiset of binding keys
+	// Build multiset of binding keys with normalized bnode labels
+	aBnodes := make(map[string]string)
+	bBnodes := make(map[string]string)
 	aKeys := make(map[string]int)
 	for _, row := range a.Bindings {
-		aKeys[bindingKey(row)]++
+		aKeys[bindingKeyNorm(row, aBnodes)]++
 	}
 	bKeys := make(map[string]int)
 	for _, row := range b.Bindings {
-		bKeys[bindingKey(row)]++
+		bKeys[bindingKeyNorm(row, bBnodes)]++
 	}
 
 	if len(aKeys) != len(bKeys) {
@@ -178,6 +181,33 @@ func ResultsEqual(a, b *Result) bool {
 		}
 	}
 	return true
+}
+
+func bindingKeyNorm(row map[string]rdflibgo.Term, bnodeMap map[string]string) string {
+	var parts []string
+	for k, v := range row {
+		val := ""
+		if v != nil {
+			if b, ok := v.(rdflibgo.BNode); ok {
+				label := b.N3()
+				if norm, exists := bnodeMap[label]; exists {
+					val = norm
+				} else {
+					norm := fmt.Sprintf("_:b%d", len(bnodeMap))
+					bnodeMap[label] = norm
+					val = norm
+				}
+			} else if l, ok := v.(rdflibgo.Literal); ok && isNumericDatatype(l.Datatype()) {
+				f := toFloat64(v)
+				val = fmt.Sprintf("NUM:%g", f)
+			} else {
+				val = v.N3()
+			}
+		}
+		parts = append(parts, k+"="+val)
+	}
+	sortStrings(parts)
+	return strings.Join(parts, "|")
 }
 
 func bindingKey(row map[string]rdflibgo.Term) string {

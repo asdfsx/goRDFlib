@@ -177,7 +177,7 @@ func evalFunc(name string, args []Expr, bindings map[string]rdflibgo.Term, prefi
 			if err != nil {
 				return vals[0]
 			}
-			return rdflibgo.NewLiteral(re.ReplaceAllString(termString(vals[0]), replacement))
+			return stringResult(re.ReplaceAllString(termString(vals[0]), replacement), vals[0])
 		}
 
 	// Term accessors
@@ -309,13 +309,13 @@ func evalFunc(name string, args []Expr, bindings map[string]rdflibgo.Term, prefi
 			s := termString(vals[0])
 			arg := termString(vals[1])
 			if arg == "" {
-				return rdflibgo.NewLiteral("")
+				return stringResult("", vals[0])
 			}
 			idx := strings.Index(s, arg)
 			if idx < 0 {
 				return rdflibgo.NewLiteral("")
 			}
-			return rdflibgo.NewLiteral(s[:idx])
+			return stringResult(s[:idx], vals[0])
 		}
 	case "STRAFTER":
 		vals := evalArgs()
@@ -323,13 +323,13 @@ func evalFunc(name string, args []Expr, bindings map[string]rdflibgo.Term, prefi
 			s := termString(vals[0])
 			arg := termString(vals[1])
 			if arg == "" {
-				return rdflibgo.NewLiteral("")
+				return stringResult("", vals[0])
 			}
 			idx := strings.Index(s, arg)
 			if idx < 0 {
 				return rdflibgo.NewLiteral("")
 			}
-			return rdflibgo.NewLiteral(s[idx+len(arg):])
+			return stringResult(s[idx+len(arg):], vals[0])
 		}
 	case "ENCODE_FOR_URI":
 		vals := evalArgs()
