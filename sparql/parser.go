@@ -72,8 +72,8 @@ func (p *sparqlParser) parse() (*ParsedQuery, error) {
 		p.pos += 9
 		q.Type = "CONSTRUCT"
 		p.skipWS()
-		// CONSTRUCT WHERE { ... } shorthand: no explicit template
-		if !p.matchKeywordCI("WHERE") {
+		// CONSTRUCT WHERE or CONSTRUCT FROM ... WHERE shorthand
+		if !p.matchKeywordCI("WHERE") && !p.matchKeywordCI("FROM") {
 			if err := p.parseConstruct(q); err != nil {
 				return nil, err
 			}

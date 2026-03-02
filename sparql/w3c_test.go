@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	rdflibgo "github.com/tggo/goRDFlib"
+	"github.com/tggo/goRDFlib/nt"
 	"github.com/tggo/goRDFlib/rdfxml"
 	"github.com/tggo/goRDFlib/sparql"
 	"github.com/tggo/goRDFlib/testdata/w3c"
@@ -154,6 +155,10 @@ func loadDataFile(t *testing.T, g *rdflibgo.Graph, path string) {
 	case ".rdf", ".xml":
 		if err := rdfxml.Parse(g, f, rdfxml.WithBase(base)); err != nil {
 			t.Fatalf("failed to parse RDF/XML data %s: %v", path, err)
+		}
+	case ".nt":
+		if err := nt.Parse(g, f, nt.WithBase(base)); err != nil {
+			t.Fatalf("failed to parse N-Triples data %s: %v", path, err)
 		}
 	default:
 		t.Fatalf("unsupported data format: %s", ext)
