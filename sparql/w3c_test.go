@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	rdflibgo "github.com/tggo/goRDFlib"
+	"github.com/tggo/goRDFlib/rdfxml"
 	"github.com/tggo/goRDFlib/sparql"
 	"github.com/tggo/goRDFlib/testdata/w3c"
 	"github.com/tggo/goRDFlib/turtle"
@@ -54,7 +55,7 @@ func runQueryEvalTest(t *testing.T, entry w3c.TestEntry) {
 	// Load data
 	g := rdflibgo.NewGraph()
 	if entry.Data != "" {
-		loadTurtleFile(t, g, entry.Data)
+		loadDataFile(t, g, entry.Data)
 	}
 
 	// Read query
@@ -136,7 +137,7 @@ func runNegativeSyntaxTest(t *testing.T, entry w3c.TestEntry) {
 	}
 }
 
-func loadTurtleFile(t *testing.T, g *rdflibgo.Graph, path string) {
+func loadDataFile(t *testing.T, g *rdflibgo.Graph, path string) {
 	t.Helper()
 	f, err := os.Open(path)
 	if err != nil {
@@ -144,8 +145,18 @@ func loadTurtleFile(t *testing.T, g *rdflibgo.Graph, path string) {
 	}
 	defer f.Close()
 	base := "file://" + path
-	if err := turtle.Parse(g, f, turtle.WithBase(base)); err != nil {
-		t.Fatalf("failed to parse turtle data %s: %v", path, err)
+	ext := strings.ToLower(filepath.Ext(path))
+	switch ext {
+	case ".ttl":
+		if err := turtle.Parse(g, f, turtle.WithBase(base)); err != nil {
+			t.Fatalf("failed to parse turtle data %s: %v", path, err)
+		}
+	case ".rdf", ".xml":
+		if err := rdfxml.Parse(g, f, rdfxml.WithBase(base)); err != nil {
+			t.Fatalf("failed to parse RDF/XML data %s: %v", path, err)
+		}
+	default:
+		t.Fatalf("unsupported data format: %s", ext)
 	}
 }
 

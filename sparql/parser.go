@@ -82,6 +82,22 @@ func (p *sparqlParser) parse() (*ParsedQuery, error) {
 		return nil, p.errorf("expected SELECT, ASK, or CONSTRUCT")
 	}
 
+	// FROM / FROM NAMED clauses (skip dataset declarations)
+	for {
+		p.skipWS()
+		if p.matchKeywordCI("FROM") {
+			p.pos += 4
+			p.skipWS()
+			if p.matchKeywordCI("NAMED") {
+				p.pos += 5
+				p.skipWS()
+			}
+			p.readTermOrVar() // skip the IRI
+			continue
+		}
+		break
+	}
+
 	// WHERE clause
 	p.skipWS()
 	if p.matchKeywordCI("WHERE") {
@@ -316,12 +332,43 @@ func (p *sparqlParser) parseConstruct(q *ParsedQuery) error {
 		p.skipWS()
 		pred := p.readTermOrVar()
 		p.skipWS()
-		obj := p.readTermOrVar()
+		// Object list (,) and predicate-object list (;)
+		for {
+			obj := p.readTermOrVar()
+			q.Construct = append(q.Construct, TripleTemplate{Subject: s, Predicate: pred, Object: obj})
+			p.skipWS()
+			if p.pos < len(p.input) && p.input[p.pos] == ',' {
+				p.pos++
+				p.skipWS()
+				continue
+			}
+			break
+		}
 		p.skipWS()
+		for p.pos < len(p.input) && p.input[p.pos] == ';' {
+			p.pos++
+			p.skipWS()
+			if p.pos >= len(p.input) || p.input[p.pos] == '.' || p.input[p.pos] == '}' {
+				break
+			}
+			pred = p.readTermOrVar()
+			p.skipWS()
+			for {
+				obj := p.readTermOrVar()
+				q.Construct = append(q.Construct, TripleTemplate{Subject: s, Predicate: pred, Object: obj})
+				p.skipWS()
+				if p.pos < len(p.input) && p.input[p.pos] == ',' {
+					p.pos++
+					p.skipWS()
+					continue
+				}
+				break
+			}
+			p.skipWS()
+		}
 		if p.pos < len(p.input) && p.input[p.pos] == '.' {
 			p.pos++
 		}
-		q.Construct = append(q.Construct, TripleTemplate{Subject: s, Predicate: pred, Object: obj})
 	}
 	return nil
 }
@@ -1206,13 +1253,18 @@ func (p *sparqlParser) parseMulExpr() (Expr, error) {
 func (p *sparqlParser) parseUnaryExpr() (Expr, error) {
 	p.skipWS()
 	if p.pos < len(p.input) && p.input[p.pos] == '!' {
-		// Check for NOT EXISTS
+		// Check for ! EXISTS (same as NOT EXISTS)
 		saved := p.pos
 		p.pos++
 		p.skipWS()
 		if p.matchKeywordCI("EXISTS") {
-			p.pos = saved
-			return p.parsePrimaryExpr()
+			p.pos += 6
+			p.skipWS()
+			pat, err := p.parseGroupGraphPattern()
+			if err != nil {
+				return nil, err
+			}
+			return &ExistsExpr{Pattern: pat, Not: true}, nil
 		}
 		p.pos = saved + 1
 		arg, err := p.parsePrimaryExpr()
