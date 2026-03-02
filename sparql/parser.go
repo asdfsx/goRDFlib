@@ -1858,6 +1858,21 @@ func (p *sparqlParser) resolveTermValue(s string) rdflibgo.Term {
 		return rdflibgo.NewURIRefUnsafe(s[1 : len(s)-1])
 	}
 	if strings.HasPrefix(s, "\"") || strings.HasPrefix(s, "'") {
+		// Check for prefixed datatype (^^prefix:local)
+		if idx := strings.Index(s, "^^"); idx >= 0 {
+			dtPart := s[idx+2:]
+			if !strings.HasPrefix(dtPart, "<") {
+				// It's a prefixed name datatype
+				if cidx := strings.Index(dtPart, ":"); cidx >= 0 {
+					prefix := dtPart[:cidx]
+					local := dtPart[cidx+1:]
+					if ns, ok := p.prefixes[prefix]; ok {
+						lit := parseLiteralString(s[:idx])
+						return rdflibgo.NewLiteral(lit.Lexical(), rdflibgo.WithDatatype(rdflibgo.NewURIRefUnsafe(ns+local)))
+					}
+				}
+			}
+		}
 		return parseLiteralString(s)
 	}
 	if s == "true" {
