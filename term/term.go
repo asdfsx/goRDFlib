@@ -49,6 +49,7 @@ type Predicate = URIRef
 // Ported from: rdflib.term.URIRef
 type URIRef struct {
 	value string
+	key   string // cached TermKey
 }
 
 func (u URIRef) subject()        {}
@@ -114,12 +115,12 @@ func isValidIRI(s string) bool {
 // Deprecated: prefer MustURIRef for new package-internal code. This remains
 // exported for backward compatibility.
 func NewURIRefUnsafe(value string) URIRef {
-	return URIRef{value: value}
+	return URIRef{value: value, key: "U:" + value}
 }
 
 // MustURIRef is like NewURIRefUnsafe but exported for cross-package use.
 func MustURIRef(value string) URIRef {
-	return URIRef{value: value}
+	return URIRef{value: value, key: "U:" + value}
 }
 
 // NewURIRef creates a new URIRef, validating that it contains no forbidden characters.
@@ -128,7 +129,7 @@ func NewURIRef(value string) (URIRef, error) {
 	if !isValidIRI(value) {
 		return URIRef{}, fmt.Errorf("%w: %q contains forbidden characters", ErrInvalidIRI, value)
 	}
-	return URIRef{value: value}, nil
+	return URIRef{value: value, key: "U:" + value}, nil
 }
 
 // NewURIRefWithBase creates a new URIRef by resolving value against a base IRI.
@@ -154,6 +155,7 @@ func NewURIRefWithBase(value, base string) (URIRef, error) {
 // Ported from: rdflib.term.BNode
 type BNode struct {
 	value string
+	key   string // cached TermKey
 }
 
 func (b BNode) subject()        {}
@@ -199,11 +201,14 @@ func (b BNode) Skolemize(authority string, basepath ...string) URIRef {
 // The id format is "N" + 32 hex chars from a UUID4, matching Python rdflib's default.
 // Ported from: rdflib.term.BNode.__new__
 func NewBNode(id ...string) BNode {
+	var v string
 	if len(id) > 0 && id[0] != "" {
-		return BNode{value: id[0]}
+		v = id[0]
+	} else {
+		u := uuid.New()
+		v = "N" + hex.EncodeToString(u[:])
 	}
-	u := uuid.New()
-	return BNode{value: "N" + hex.EncodeToString(u[:])}
+	return BNode{value: v, key: "B:" + v}
 }
 
 // --- Variable ---

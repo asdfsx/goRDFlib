@@ -6,9 +6,9 @@ package term
 func TermKey(t Term) string {
 	switch v := t.(type) {
 	case URIRef:
-		return "U:" + v.Value()
+		return v.key
 	case BNode:
-		return "B:" + v.Value()
+		return v.key
 	case Literal:
 		return "L:" + v.N3()
 	case Variable:

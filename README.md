@@ -88,15 +88,35 @@ All parsers are validated against the official [W3C RDF test suites](https://git
 | Turtle | 313 | 313 | 100% |
 | N-Triples | 70 | 70 | 100% |
 | N-Quads | 87 | 87 | 100% |
-| RDF/XML | 166 | 164 | 98.8% |
+| RDF/XML | 166 | 166 | 100% |
 | SHACL | 98 | 98 | 100% |
-
-The 2 remaining RDF/XML failures are XML Literal canonicalization tests (Exclusive C14N with namespace propagation).
 
 ```bash
 go test ./...
-go test -race ./...
-go test -cover ./...
+```
+
+## Performance
+
+Benchmarked against Python rdflib 7.6.0 on Apple M4 Max:
+
+| Benchmark | Go | Python | Speedup |
+|-----------|---:|-------:|--------:|
+| NewURIRef | 25 ns | 306 ns | **12x** |
+| NewBNode | 217 ns | 2,458 ns | **11x** |
+| NewLiteral (string) | 14 ns | 1,239 ns | **89x** |
+| NewLiteral (int) | 15 ns | 1,813 ns | **121x** |
+| URIRef.N3() | 16 ns | 272 ns | **17x** |
+| Literal.N3() | 27 ns | 369 ns | **14x** |
+| Literal.Eq() | 16 ns | 317 ns | **20x** |
+| Store Add 10k | 10.5 ms | 80.9 ms | **8x** |
+| Store Lookup 1k | 6 µs | 819 µs | **131x** |
+| Parse Turtle | 4.5 µs | 256 µs | **57x** |
+| Serialize Turtle | 5.1 µs | 91 µs | **18x** |
+| SPARQL SELECT | 52 µs | 1,674 µs | **32x** |
+
+```bash
+go test ./benchmarks/ -bench=. -benchmem
+python3 benchmarks/bench_python.py
 ```
 
 ## Based On
@@ -109,7 +129,6 @@ The porting process followed a 14-phase plan covering core data model, store, gr
 
 - SPARQL engine covers core features but not the full SPARQL 1.1 specification (no UPDATE, no aggregates beyond basic, no sub-queries)
 - JSON-LD processing delegates to [piprate/json-gold](https://github.com/piprate/json-gold) which may attempt remote context fetches
-- RDF/XML parser does not implement Exclusive XML Canonicalization for `parseType="Literal"` (2 of 166 W3C tests)
 - No TriG format support yet
 
 ## License
