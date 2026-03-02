@@ -698,14 +698,22 @@ func castXSD(name string, val rdflibgo.Term) rdflibgo.Term {
 			return nil
 		}
 		s := lit.Lexical()
-		if f, err := strconv.ParseFloat(s, 64); err == nil {
-			return rdflibgo.NewLiteral(int(f), rdflibgo.WithDatatype(rdflibgo.XSDInteger))
-		}
-		if lit.Datatype() == rdflibgo.XSDBoolean {
+		dt := lit.Datatype()
+		if dt == rdflibgo.XSDBoolean {
 			if s == "true" {
 				return rdflibgo.NewLiteral(1, rdflibgo.WithDatatype(rdflibgo.XSDInteger))
 			}
 			return rdflibgo.NewLiteral(0, rdflibgo.WithDatatype(rdflibgo.XSDInteger))
+		}
+		if isNumericDatatype(dt) {
+			// From numeric: truncate to integer
+			if f, err := strconv.ParseFloat(s, 64); err == nil {
+				return rdflibgo.NewLiteral(int(f), rdflibgo.WithDatatype(rdflibgo.XSDInteger))
+			}
+		}
+		// From string/plain: must be a valid integer lexical form
+		if _, err := strconv.ParseInt(strings.TrimLeft(s, "+"), 10, 64); err == nil {
+			return rdflibgo.NewLiteral(s, rdflibgo.WithDatatype(rdflibgo.XSDInteger))
 		}
 		return nil
 
