@@ -346,7 +346,7 @@ func evalFunc(name string, args []Expr, bindings map[string]rdflibgo.Term, prefi
 			s := termString(vals[0])
 			arg := termString(vals[1])
 			if arg == "" {
-				return stringResult("", vals[0])
+				return stringResult(s, vals[0])
 			}
 			idx := strings.Index(s, arg)
 			if idx < 0 {
