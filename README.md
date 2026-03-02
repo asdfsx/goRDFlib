@@ -1,5 +1,14 @@
 # goRDFlib
 
+[![CI](https://github.com/tggo/goRDFlib/actions/workflows/ci.yml/badge.svg)](https://github.com/tggo/goRDFlib/actions/workflows/ci.yml)
+[![Go Reference](https://pkg.go.dev/badge/github.com/tggo/goRDFlib.svg)](https://pkg.go.dev/github.com/tggo/goRDFlib)
+[![Go Report Card](https://goreportcard.com/badge/github.com/tggo/goRDFlib)](https://goreportcard.com/report/github.com/tggo/goRDFlib)
+![W3C Turtle](https://img.shields.io/badge/W3C_Turtle-313%2F313-brightgreen)
+![W3C N-Triples](https://img.shields.io/badge/W3C_N--Triples-70%2F70-brightgreen)
+![W3C N-Quads](https://img.shields.io/badge/W3C_N--Quads-87%2F87-brightgreen)
+![W3C RDF/XML](https://img.shields.io/badge/W3C_RDF%2FXML-166%2F166-brightgreen)
+![W3C SHACL](https://img.shields.io/badge/W3C_SHACL-98%2F98-brightgreen)
+
 A Go port of the Python [RDFLib](https://github.com/RDFLib/rdflib) library for working with RDF (Resource Description Framework) data.
 
 > **Warning:** This project is in early development (v0.0.x). The API is not stable and may contain bugs. Do not use in production without thorough testing.
