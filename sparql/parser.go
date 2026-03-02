@@ -575,21 +575,22 @@ func (p *sparqlParser) parseGroupGraphPattern() (Pattern, error) {
 			continue
 		}
 
-		// GRAPH (not fully supported - skip the block)
+		// GRAPH clause
 		if p.matchKeywordCI("GRAPH") {
 			p.pos += 5
 			flushTriples()
 			p.skipWS()
-			p.readTermOrVar() // skip graph name
+			graphName := p.readTermOrVar()
 			p.skipWS()
 			sub, err := p.parseGroupGraphPattern()
 			if err != nil {
 				return nil, err
 			}
+			gp := &GraphPattern{Name: graphName, Pattern: sub}
 			if result == nil {
-				result = sub
+				result = gp
 			} else {
-				result = &JoinPattern{Left: result, Right: sub}
+				result = &JoinPattern{Left: result, Right: gp}
 			}
 			continue
 		}

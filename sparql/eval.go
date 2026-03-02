@@ -565,6 +565,10 @@ func evalPattern(g *rdflibgo.Graph, pattern Pattern, prefixes map[string]string)
 		}
 		return result
 
+	case *GraphPattern:
+		// Simplified: evaluate inner pattern against the same graph
+		return evalPattern(g, p.Pattern, prefixes)
+
 	case *SubqueryPattern:
 		subResult, err := EvalQuery(g, p.Query, nil)
 		if err != nil {

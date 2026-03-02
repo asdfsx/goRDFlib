@@ -104,6 +104,14 @@ type ValuesPattern struct {
 
 func (v *ValuesPattern) patternType() string { return "Values" }
 
+// GraphPattern wraps a pattern inside a GRAPH clause.
+type GraphPattern struct {
+	Name    string // graph name (variable or IRI)
+	Pattern Pattern
+}
+
+func (g *GraphPattern) patternType() string { return "Graph" }
+
 // MinusPattern removes solutions from left that are compatible with right.
 type MinusPattern struct {
 	Left, Right Pattern
