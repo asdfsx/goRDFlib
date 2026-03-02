@@ -963,14 +963,7 @@ func (p *sparqlParser) resolvePathURI() string {
 	if p.pos < len(p.input) && p.input[p.pos] == ':' {
 		prefix := p.input[start:p.pos]
 		p.pos++
-		localStart := p.pos
-		for p.pos < len(p.input) && (isNameChar(rune(p.input[p.pos])) || p.input[p.pos] == '.' || p.input[p.pos] == '-') {
-			p.pos++
-		}
-		for p.pos > localStart && p.input[p.pos-1] == '.' {
-			p.pos--
-		}
-		local := p.input[localStart:p.pos]
+		local := unescapePNLocal(p.readPNLocal())
 		if ns, ok := p.prefixes[prefix]; ok {
 			return ns + local
 		}
@@ -1580,20 +1573,14 @@ func (p *sparqlParser) readTermOrVar() string {
 		return p.input[start:p.pos]
 	}
 
-	// Prefixed name
+	// Prefixed name (may start with digit for local part like :123)
 	start := p.pos
 	for p.pos < len(p.input) && isNameChar(rune(p.input[p.pos])) {
 		p.pos++
 	}
 	if p.pos < len(p.input) && p.input[p.pos] == ':' {
 		p.pos++
-		for p.pos < len(p.input) && (isNameChar(rune(p.input[p.pos])) || p.input[p.pos] == '.' || p.input[p.pos] == '-') {
-			p.pos++
-		}
-		// Trim trailing dot
-		for p.pos > start && p.input[p.pos-1] == '.' {
-			p.pos--
-		}
+		p.readPNLocal()
 	}
 	return p.input[start:p.pos]
 }
@@ -1676,6 +1663,34 @@ func (p *sparqlParser) readBlankNodePropertyList() string {
 	return "?_bnode" // simplified - not fully correct
 }
 
+// readPNLocal reads the local part of a prefixed name (after the colon).
+// Supports SPARQL 1.1 PN_LOCAL: name chars, dots, dashes, colons, % escapes, \ escapes.
+func (p *sparqlParser) readPNLocal() string {
+	start := p.pos
+	for p.pos < len(p.input) {
+		ch := p.input[p.pos]
+		if isNameChar(rune(ch)) || ch == '.' || ch == '-' || ch == ':' {
+			p.pos++
+		} else if ch == '%' && p.pos+2 < len(p.input) {
+			// Percent-encoded char: %HH
+			p.pos += 3
+		} else if ch == '\\' && p.pos+1 < len(p.input) {
+			// PN_LOCAL_ESC: backslash-escaped char
+			p.pos += 2
+		} else {
+			break
+		}
+	}
+	// Trim trailing dots (not part of the name), but not if escaped (\.)
+	for p.pos > start && p.input[p.pos-1] == '.' {
+		if p.pos >= start+2 && p.input[p.pos-2] == '\\' {
+			break // escaped dot, keep it
+		}
+		p.pos--
+	}
+	return p.input[start:p.pos]
+}
+
 func (p *sparqlParser) readIRIRef() string {
 	if p.pos >= len(p.input) || p.input[p.pos] != '<' {
 		return ""
@@ -1751,6 +1766,8 @@ func (p *sparqlParser) resolveTermValue(s string) rdflibgo.Term {
 	if idx := strings.Index(s, ":"); idx >= 0 {
 		prefix := s[:idx]
 		local := s[idx+1:]
+		// Unescape PN_LOCAL_ESC (backslash escapes) and percent encoding
+		local = unescapePNLocal(local)
 		if ns, ok := p.prefixes[prefix]; ok {
 			return rdflibgo.NewURIRefUnsafe(ns + local)
 		}
@@ -1928,6 +1945,27 @@ func (p *sparqlParser) validate(q *ParsedQuery) error {
 		}
 	}
 	return nil
+}
+
+// unescapePNLocal removes backslash escapes from PN_LOCAL_ESC sequences.
+func unescapePNLocal(s string) string {
+	if !strings.ContainsAny(s, `\%`) {
+		return s
+	}
+	var b strings.Builder
+	for i := 0; i < len(s); i++ {
+		if s[i] == '\\' && i+1 < len(s) {
+			b.WriteByte(s[i+1])
+			i++
+		} else if s[i] == '%' && i+2 < len(s) {
+			// Keep percent encoding as-is in the URI
+			b.WriteString(s[i : i+3])
+			i += 2
+		} else {
+			b.WriteByte(s[i])
+		}
+	}
+	return b.String()
 }
 
 func isNameChar(r rune) bool {
