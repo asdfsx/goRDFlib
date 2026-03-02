@@ -58,6 +58,10 @@ func runQueryEvalTest(t *testing.T, entry w3c.TestEntry) {
 	if entry.Data != "" {
 		loadDataFile(t, g, entry.Data)
 	}
+	// Load named graph data into default graph (simplified)
+	for _, gd := range entry.GraphData {
+		loadDataFile(t, g, gd)
+	}
 
 	// Read query
 	queryPath := entry.Query

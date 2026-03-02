@@ -25,12 +25,13 @@ type Manifest struct {
 
 // TestEntry represents a single W3C conformance test.
 type TestEntry struct {
-	Name   string // mf:name
-	Type   string // full IRI, e.g. "http://www.w3.org/ns/rdftest#TestTurtleEval"
-	Action string // absolute file path from mf:action (for simple tests)
-	Result string // absolute file path from mf:result (empty for syntax tests)
-	Query  string // absolute file path from qt:query (SPARQL tests)
-	Data   string // absolute file path from qt:data (SPARQL tests)
+	Name       string   // mf:name
+	Type       string   // full IRI, e.g. "http://www.w3.org/ns/rdftest#TestTurtleEval"
+	Action     string   // absolute file path from mf:action (for simple tests)
+	Result     string   // absolute file path from mf:result (empty for syntax tests)
+	Query      string   // absolute file path from qt:query (SPARQL tests)
+	Data       string   // absolute file path from qt:data (SPARQL tests)
+	GraphData  []string // absolute file paths from qt:graphData (named graphs)
 }
 
 // ParseManifest reads a W3C manifest.ttl and returns the manifest with all test entries.
@@ -82,6 +83,7 @@ func ParseManifest(manifestPath string) (*Manifest, error) {
 	resultPred := term.NewURIRefUnsafe(mf + "result")
 	queryPred := term.NewURIRefUnsafe(qt + "query")
 	dataPred := term.NewURIRefUnsafe(qt + "data")
+	graphDataPred := term.NewURIRefUnsafe(qt + "graphData")
 
 	coll.Iter()(func(item term.Term) bool {
 		subj, ok := item.(term.Subject)
@@ -107,12 +109,18 @@ func ParseManifest(manifestPath string) (*Manifest, error) {
 			case term.URIRef:
 				e.Action = toFilePath(av.Value())
 			case term.Subject:
-				// SPARQL manifest: action is a blank node with qt:query and qt:data
+				// SPARQL manifest: action is a blank node with qt:query, qt:data, qt:graphData
 				if qv, ok := g.Value(av, &queryPred, nil); ok {
 					e.Query = toFilePath(qv.(term.URIRef).Value())
 				}
 				if dv, ok := g.Value(av, &dataPred, nil); ok {
 					e.Data = toFilePath(dv.(term.URIRef).Value())
+				}
+				// Collect all qt:graphData entries
+				for gd := range g.Triples(av, &graphDataPred, nil) {
+					if u, ok := gd.Object.(term.URIRef); ok {
+						e.GraphData = append(e.GraphData, toFilePath(u.Value()))
+					}
 				}
 			}
 		}
