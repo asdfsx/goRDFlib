@@ -314,13 +314,14 @@ func (p *sparqlParser) parseSelect(q *ParsedQuery) error {
 					return err
 				}
 				p.skipWS()
-				if p.matchKeywordCI("AS") {
-					p.pos += 2
-					p.skipWS()
-					v := p.readVar()
-					q.Variables = append(q.Variables, v)
-					q.ProjectExprs = append(q.ProjectExprs, ProjectExpr{Expr: expr, Var: v})
+				if !p.matchKeywordCI("AS") {
+					return p.errorf("expected AS in SELECT expression")
 				}
+				p.pos += 2
+				p.skipWS()
+				v := p.readVar()
+				q.Variables = append(q.Variables, v)
+				q.ProjectExprs = append(q.ProjectExprs, ProjectExpr{Expr: expr, Var: v})
 				p.skipWS()
 				if p.pos < len(p.input) && p.input[p.pos] == ')' {
 					p.pos++
