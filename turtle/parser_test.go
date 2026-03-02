@@ -168,6 +168,29 @@ func TestParseTurtleBlankNodePropertyList(t *testing.T) {
 	}
 }
 
+func TestParseTurtleStandaloneBlankNodePropertyList(t *testing.T) {
+	// Standalone blank node property list as subject with no further predicates.
+	// Per Turtle grammar: triples ::= blankNodePropertyList predicateObjectList?
+	g := parseTurtle(t, `
+		@prefix ex: <http://example.org/> .
+		[ ex:name "Alice" ; ex:age "30" ] .
+	`)
+	if g.Len() != 2 {
+		t.Errorf("expected 2 triples, got %d", g.Len())
+	}
+}
+
+func TestParseTurtleStandaloneBlankNodeWithFollowingTriples(t *testing.T) {
+	// Standalone blank node property list followed by additional predicate-object pairs.
+	g := parseTurtle(t, `
+		@prefix ex: <http://example.org/> .
+		[ ex:name "Alice" ] ex:knows ex:Bob .
+	`)
+	if g.Len() != 2 {
+		t.Errorf("expected 2 triples, got %d", g.Len())
+	}
+}
+
 func TestParseTurtleNestedBlankNode(t *testing.T) {
 	// Ported from: W3C turtle test — nested blank nodes
 	g := parseTurtle(t, `

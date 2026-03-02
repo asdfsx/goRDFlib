@@ -159,6 +159,8 @@ func (p *turtleParser) sparqlBase() error {
 }
 
 // tripleStatement parses: subject predicateObjectList '.'
+// Per the Turtle grammar, when the subject is a blankNodePropertyList,
+// the predicateObjectList is optional.
 func (p *turtleParser) tripleStatement() error {
 	subj, err := p.readSubject()
 	if err != nil {
@@ -166,6 +168,13 @@ func (p *turtleParser) tripleStatement() error {
 	}
 
 	p.skipWS()
+	// When the subject is a blank node property list [...], predicateObjectList
+	// is optional — the statement may consist of just the blank node followed by '.'.
+	if _, isBNode := subj.(rdflibgo.BNode); isBNode && p.pos < len(p.input) && p.input[p.pos] == '.' {
+		p.pos++
+		return nil
+	}
+
 	if err := p.predicateObjectList(subj); err != nil {
 		return err
 	}
