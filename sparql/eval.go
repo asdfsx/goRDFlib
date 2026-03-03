@@ -11,13 +11,16 @@ import (
 	"github.com/tggo/goRDFlib/term"
 )
 
+// baseURIKey is used to pass the query base URI through the prefixes map.
+const baseURIKey = "__base__"
+
 // EvalQuery evaluates a parsed SPARQL query against a graph.
 func EvalQuery(g *rdflibgo.Graph, q *ParsedQuery, initBindings map[string]rdflibgo.Term) (*Result, error) {
 	if q.Prefixes == nil {
 		q.Prefixes = make(map[string]string)
 	}
 	if q.BaseURI != "" {
-		q.Prefixes["__base__"] = q.BaseURI
+		q.Prefixes[baseURIKey] = q.BaseURI
 	}
 	solutions := evalPattern(g, q.Where, q.Prefixes, q.NamedGraphs)
 
@@ -542,7 +545,7 @@ func evalPattern(g *rdflibgo.Graph, pattern Pattern, prefixes map[string]string,
 
 	case *ValuesPattern:
 		var result []map[string]rdflibgo.Term
-		base, _ := prefixes["__base__"]
+		base, _ := prefixes[baseURIKey]
 		for _, row := range p.Values {
 			b := make(map[string]rdflibgo.Term)
 			for i, v := range p.Vars {
@@ -581,8 +584,9 @@ func evalPattern(g *rdflibgo.Graph, pattern Pattern, prefixes map[string]string,
 		return evalGraphPattern(g, p, prefixes, namedGraphs)
 
 	case *SubqueryPattern:
-		p.Query.NamedGraphs = namedGraphs
-		subResult, err := EvalQuery(g, p.Query, nil)
+		subQ := *p.Query // shallow copy to avoid mutating AST
+		subQ.NamedGraphs = namedGraphs
+		subResult, err := EvalQuery(g, &subQ, nil)
 		if err != nil {
 			return nil
 		}
@@ -636,12 +640,6 @@ func evalGraphPattern(g *rdflibgo.Graph, gp *GraphPattern, prefixes map[string]s
 
 	if namedG, ok := namedGraphs[graphIRI]; ok {
 		return evalPattern(namedG, gp.Pattern, prefixes, namedGraphs)
-	}
-	// Try matching by filename suffix (for relative URIs like <ng-01.ttl>)
-	for name, namedG := range namedGraphs {
-		if strings.HasSuffix(name, "/"+graphIRI) || strings.HasSuffix(name, graphIRI) {
-			return evalPattern(namedG, gp.Pattern, prefixes, namedGraphs)
-		}
 	}
 	return nil
 }
@@ -793,7 +791,7 @@ func resolvePatternTerm(s string, bindings map[string]rdflibgo.Term, prefixes ma
 		iri := s[1 : len(s)-1]
 		// Resolve relative IRI against base
 		if !strings.Contains(iri, ":") {
-			if base, ok := prefixes["__base__"]; ok {
+			if base, ok := prefixes[baseURIKey]; ok {
 				iri = base + iri
 			}
 		}
@@ -842,7 +840,7 @@ func evalExpr(expr Expr, bindings map[string]rdflibgo.Term, prefixes map[string]
 	case *IRIExpr:
 		iri := e.Value
 		if !strings.Contains(iri, ":") {
-			if base, ok := prefixes["__base__"]; ok {
+			if base, ok := prefixes[baseURIKey]; ok {
 				iri = base + iri
 			}
 		}

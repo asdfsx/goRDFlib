@@ -400,7 +400,7 @@ func evalFunc(name string, args []Expr, bindings map[string]rdflibgo.Term, prefi
 				s = termString(vals[0])
 			}
 			// Resolve relative URI against base
-			if base, ok := prefixes["__base__"]; ok && !strings.Contains(s, ":") {
+			if base, ok := prefixes[baseURIKey]; ok && !strings.Contains(s, ":") {
 				s = base + s
 			}
 			return rdflibgo.NewURIRefUnsafe(s)

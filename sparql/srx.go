@@ -164,11 +164,11 @@ func ResultsEqual(a, b *Result) bool {
 	// First try without bnode normalization (fast path)
 	aKeys := make(map[string]int)
 	for _, row := range a.Bindings {
-		aKeys[bindingKeySimple(row)]++
+		aKeys[bindingKeyWith(row, false)]++
 	}
 	bKeys := make(map[string]int)
 	for _, row := range b.Bindings {
-		bKeys[bindingKeySimple(row)]++
+		bKeys[bindingKeyWith(row, false)]++
 	}
 	match := true
 	for k, v := range aKeys {
@@ -190,12 +190,12 @@ func resultEqualWithBnodes(a, b []map[string]rdflibgo.Term) bool {
 	// Build keys ignoring bnode labels (replace all bnodes with placeholder)
 	aKeys := make(map[string][]int) // key → indices
 	for i, row := range a {
-		k := bindingKeyNoBnodes(row)
+		k := bindingKeyWith(row, true)
 		aKeys[k] = append(aKeys[k], i)
 	}
 	bKeys := make(map[string][]int)
 	for i, row := range b {
-		k := bindingKeyNoBnodes(row)
+		k := bindingKeyWith(row, true)
 		bKeys[k] = append(bKeys[k], i)
 	}
 	if len(aKeys) != len(bKeys) {
@@ -210,31 +210,21 @@ func resultEqualWithBnodes(a, b []map[string]rdflibgo.Term) bool {
 	return true
 }
 
-func bindingKeySimple(row map[string]rdflibgo.Term) string {
+// bindingKeyWith builds a canonical string key for a binding row.
+// If collapseBnodes is true, all blank nodes are collapsed to a single placeholder.
+func bindingKeyWith(row map[string]rdflibgo.Term, collapseBnodes bool) string {
 	var parts []string
 	for k, v := range row {
 		val := ""
 		if v != nil {
-			if l, ok := v.(rdflibgo.Literal); ok && isNumericDatatype(l.Datatype()) {
-				val = fmt.Sprintf("NUM:%g", toFloat64(v))
-			} else {
-				val = v.N3()
+			if collapseBnodes {
+				if _, ok := v.(rdflibgo.BNode); ok {
+					val = "_:BNODE"
+					parts = append(parts, k+"="+val)
+					continue
+				}
 			}
-		}
-		parts = append(parts, k+"="+val)
-	}
-	slices.Sort(parts)
-	return strings.Join(parts, "|")
-}
-
-func bindingKeyNoBnodes(row map[string]rdflibgo.Term) string {
-	var parts []string
-	for k, v := range row {
-		val := ""
-		if v != nil {
-			if _, ok := v.(rdflibgo.BNode); ok {
-				val = "_:BNODE" // all bnodes collapse to same placeholder
-			} else if l, ok := v.(rdflibgo.Literal); ok && isNumericDatatype(l.Datatype()) {
+			if l, ok := v.(rdflibgo.Literal); ok && isNumericDatatype(l.Datatype()) {
 				val = fmt.Sprintf("NUM:%g", toFloat64(v))
 			} else {
 				val = v.N3()
