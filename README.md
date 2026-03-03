@@ -3,7 +3,8 @@
 [![CI](https://github.com/tggo/goRDFlib/actions/workflows/ci.yml/badge.svg)](https://github.com/tggo/goRDFlib/actions/workflows/ci.yml)
 [![Go Reference](https://pkg.go.dev/badge/github.com/tggo/goRDFlib.svg)](https://pkg.go.dev/github.com/tggo/goRDFlib)
 [![Go Report Card](https://goreportcard.com/badge/github.com/tggo/goRDFlib)](https://goreportcard.com/report/github.com/tggo/goRDFlib)
-![W3C SPARQL](https://img.shields.io/badge/W3C_SPARQL_1.1-328%2F328-brightgreen)
+![W3C SPARQL Query](https://img.shields.io/badge/W3C_SPARQL_1.1_Query-329%2F329-brightgreen)
+![W3C SPARQL Update](https://img.shields.io/badge/W3C_SPARQL_1.1_Update-158%2F158-brightgreen)
 ![W3C Turtle](https://img.shields.io/badge/W3C_Turtle-313%2F313-brightgreen)
 ![W3C N-Triples](https://img.shields.io/badge/W3C_N--Triples-70%2F70-brightgreen)
 ![W3C N-Quads](https://img.shields.io/badge/W3C_N--Quads-87%2F87-brightgreen)
@@ -80,7 +81,7 @@ Built-in vocabularies with pre-defined terms:
 
 Custom namespaces with open and closed (restricted) modes.
 
-### SPARQL Query Engine
+### SPARQL 1.1 Query Engine
 
 **Query forms:** SELECT, ASK, CONSTRUCT (including CONSTRUCT WHERE shorthand)
 
@@ -109,6 +110,26 @@ Custom namespaces with open and closed (restricted) modes.
 | Comparison | LANGMATCHES, SAMETERM |
 | Random/UUID | RAND, UUID, STRUUID |
 | XSD casts | xsd:boolean, xsd:integer, xsd:float, xsd:double, xsd:decimal, xsd:string |
+
+### SPARQL 1.1 Update Engine
+
+**Data operations:**
+- INSERT DATA, DELETE DATA
+- DELETE/INSERT WHERE (with template instantiation)
+- DELETE WHERE (shorthand)
+
+**Modify operations:**
+- WITH clause (scoped graph target)
+- USING / USING NAMED (query dataset override)
+- Multiple operations separated by `;`
+
+**Graph management:**
+- CLEAR, DROP (DEFAULT / NAMED / ALL / specific graph)
+- CREATE GRAPH
+- ADD, MOVE, COPY (between graphs)
+- LOAD SILENT (remote load with silent error handling)
+
+**Dataset:** `sparql.Dataset` holds default graph + named graphs map for multi-graph update operations.
 
 ### Property Paths
 
@@ -271,7 +292,8 @@ All parsers, SPARQL engine, and SHACL validator are validated against official W
 
 | Component | Tests | Pass | Status |
 |-----------|-------|------|--------|
-| SPARQL 1.1 Query | 328 | 328 | 100% |
+| SPARQL 1.1 Query | 329 | 329 | 100% |
+| SPARQL 1.1 Update | 158 | 158 | 100% |
 | Turtle | 313 | 313 | 100% |
 | N-Triples | 70 | 70 | 100% |
 | N-Quads | 87 | 87 | 100% |
@@ -279,7 +301,7 @@ All parsers, SPARQL engine, and SHACL validator are validated against official W
 | SHACL Core | 98 | 98 | 100% |
 
 ```bash
-make test          # all 1928 tests
+make test          # all tests
 make test-sparql   # W3C SPARQL 1.1 conformance
 ```
 
@@ -338,7 +360,7 @@ goRDFlib/
   nq/           N-Quads parser and serializer
   rdfxml/       RDF/XML parser and serializer
   jsonld/       JSON-LD parser and serializer
-  sparql/       SPARQL query parser and engine
+  sparql/       SPARQL 1.1 query and update engine
   paths/        Property path evaluation
   shacl/        SHACL Core validator
   plugin/       Format registry and auto-detection
@@ -352,7 +374,7 @@ This project is a Go port of [RDFLib](https://github.com/RDFLib/rdflib) (v7.x), 
 
 ## Known Limitations
 
-- No SPARQL UPDATE support
+- SPARQL UPDATE LOAD requires SILENT flag (no remote graph fetching)
 - No TriG format support yet
 - JSON-LD processing delegates to [piprate/json-gold](https://github.com/piprate/json-gold) which may attempt remote context fetches
 

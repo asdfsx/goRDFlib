@@ -176,3 +176,64 @@ type ExistsExpr struct {
 }
 
 func (e *ExistsExpr) exprType() string { return "Exists" }
+
+// --- SPARQL 1.1 Update AST types ---
+
+// ParsedUpdate is the parsed representation of a SPARQL Update request.
+type ParsedUpdate struct {
+	Operations []UpdateOperation
+	Prefixes   map[string]string
+	BaseURI    string
+}
+
+// UpdateOperation is a single SPARQL Update operation.
+type UpdateOperation interface{ updateOp() }
+
+// InsertDataOp represents INSERT DATA { quads }.
+type InsertDataOp struct{ Quads []QuadPattern }
+
+func (o *InsertDataOp) updateOp() {}
+
+// DeleteDataOp represents DELETE DATA { quads }.
+type DeleteDataOp struct{ Quads []QuadPattern }
+
+func (o *DeleteDataOp) updateOp() {}
+
+// DeleteWhereOp represents DELETE WHERE { quads }.
+type DeleteWhereOp struct{ Quads []QuadPattern }
+
+func (o *DeleteWhereOp) updateOp() {}
+
+// ModifyOp represents DELETE { } INSERT { } WHERE { } with optional WITH/USING.
+type ModifyOp struct {
+	With   string        // WITH <graph>
+	Delete []QuadPattern // DELETE template
+	Insert []QuadPattern // INSERT template
+	Using  []UsingClause // USING clauses
+	Where  Pattern       // WHERE clause
+}
+
+func (o *ModifyOp) updateOp() {}
+
+// GraphMgmtOp represents CLEAR, DROP, CREATE, LOAD, ADD, MOVE, COPY.
+type GraphMgmtOp struct {
+	Op     string // CLEAR, DROP, CREATE, LOAD, ADD, MOVE, COPY
+	Silent bool
+	Target string // graph IRI, DEFAULT, NAMED, ALL
+	Source string // for ADD/MOVE/COPY source
+	Into   string // for LOAD INTO GRAPH <g>
+}
+
+func (o *GraphMgmtOp) updateOp() {}
+
+// QuadPattern groups triples under a graph name ("" = default graph).
+type QuadPattern struct {
+	Graph   string   // "" = default graph
+	Triples []Triple
+}
+
+// UsingClause is a USING [NAMED] <iri> clause.
+type UsingClause struct {
+	IRI   string
+	Named bool
+}

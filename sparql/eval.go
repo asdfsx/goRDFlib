@@ -459,12 +459,47 @@ func resolveTemplateValue(s string, bindings map[string]rdflibgo.Term, prefixes 
 }
 
 func resolveTermRef(s string, prefixes map[string]string) rdflibgo.Term {
+	if s == "" {
+		return nil
+	}
 	if strings.HasPrefix(s, "<") && strings.HasSuffix(s, ">") {
-		return rdflibgo.NewURIRefUnsafe(s[1 : len(s)-1])
+		iri := s[1 : len(s)-1]
+		// Resolve relative IRI against base
+		if base, ok := prefixes[baseURIKey]; ok && iri != "" && !strings.Contains(iri, "://") {
+			iri = base + iri
+		}
+		return rdflibgo.NewURIRefUnsafe(iri)
+	}
+	if strings.HasPrefix(s, "_:") {
+		label := s[2:]
+		if scope, ok := prefixes["__bnode_scope__"]; ok {
+			label = scope + label
+		}
+		return rdflibgo.NewBNode(label)
+	}
+	if strings.HasPrefix(s, "\"") || strings.HasPrefix(s, "'") {
+		return parseLiteralString(s)
+	}
+	if s == "true" {
+		return rdflibgo.NewLiteral(true)
+	}
+	if s == "false" {
+		return rdflibgo.NewLiteral(false)
+	}
+	// Numeric
+	if len(s) > 0 && (s[0] >= '0' && s[0] <= '9' || s[0] == '+' || s[0] == '-') {
+		if strings.ContainsAny(s, "eE") {
+			return rdflibgo.NewLiteral(s, rdflibgo.WithDatatype(rdflibgo.XSDDouble))
+		}
+		if strings.Contains(s, ".") {
+			return rdflibgo.NewLiteral(s, rdflibgo.WithDatatype(rdflibgo.XSDDecimal))
+		}
+		return rdflibgo.NewLiteral(s, rdflibgo.WithDatatype(rdflibgo.XSDInteger))
 	}
 	if idx := strings.Index(s, ":"); idx >= 0 {
 		prefix := s[:idx]
 		local := s[idx+1:]
+		local = unescapePNLocal(local)
 		if ns, ok := prefixes[prefix]; ok {
 			return rdflibgo.NewURIRefUnsafe(ns + local)
 		}
@@ -600,7 +635,7 @@ func evalPattern(g *rdflibgo.Graph, pattern Pattern, prefixes map[string]string,
 }
 
 func evalGraphPattern(g *rdflibgo.Graph, gp *GraphPattern, prefixes map[string]string, namedGraphs map[string]*rdflibgo.Graph) []map[string]rdflibgo.Term {
-	if len(namedGraphs) == 0 {
+	if namedGraphs == nil {
 		// No named graphs available — evaluate against default graph
 		return evalPattern(g, gp.Pattern, prefixes, namedGraphs)
 	}

@@ -21,3 +21,12 @@ func Query(g *rdflibgo.Graph, query string, initBindings ...map[string]rdflibgo.
 
 	return EvalQuery(g, q, bindings)
 }
+
+// Update executes a SPARQL Update request against a dataset.
+func Update(ds *Dataset, update string) error {
+	u, err := ParseUpdate(update)
+	if err != nil {
+		return fmt.Errorf("sparql update parse error: %w", err)
+	}
+	return EvalUpdate(ds, u)
+}

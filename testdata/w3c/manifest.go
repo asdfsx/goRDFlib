@@ -32,6 +32,19 @@ type TestEntry struct {
 	Query      string   // absolute file path from qt:query (SPARQL tests)
 	Data       string   // absolute file path from qt:data (SPARQL tests)
 	GraphData  []string // absolute file paths from qt:graphData (named graphs)
+
+	// Update test fields (ut: namespace)
+	Request         string           // ut:request - update file path
+	ActionData      string           // ut:data in action (pre-data for default graph)
+	ActionGraphData []NamedGraphRef  // ut:graphData in action (pre-data for named graphs)
+	ResultData      string           // ut:data in result (post-data for default graph)
+	ResultGraphData []NamedGraphRef  // ut:graphData in result (post-data for named graphs)
+}
+
+// NamedGraphRef is a named graph reference with a file path and label (graph IRI).
+type NamedGraphRef struct {
+	Graph string // absolute file path (from ut:graph)
+	Label string // graph IRI (from rdfs:label)
 }
 
 // ParseManifest reads a W3C manifest.ttl and returns the manifest with all test entries.
@@ -85,6 +98,14 @@ func ParseManifest(manifestPath string) (*Manifest, error) {
 	dataPred := term.NewURIRefUnsafe(qt + "data")
 	graphDataPred := term.NewURIRefUnsafe(qt + "graphData")
 
+	// Update test predicates (ut: namespace)
+	const ut = "http://www.w3.org/2009/sparql/tests/test-update#"
+	utRequest := term.NewURIRefUnsafe(ut + "request")
+	utData := term.NewURIRefUnsafe(ut + "data")
+	utGraphData := term.NewURIRefUnsafe(ut + "graphData")
+	utGraph := term.NewURIRefUnsafe(ut + "graph")
+	rdfsLabel := term.NewURIRefUnsafe("http://www.w3.org/2000/01/rdf-schema#label")
+
 	coll.Iter()(func(item term.Term) bool {
 		subj, ok := item.(term.Subject)
 		if !ok {
@@ -99,9 +120,6 @@ func ParseManifest(manifestPath string) (*Manifest, error) {
 		if v, ok := g.Value(subj, &typePred, nil); ok {
 			e.Type = v.(term.URIRef).Value()
 		}
-		if v, ok := g.Value(subj, &resultPred, nil); ok {
-			e.Result = toFilePath(v.(term.URIRef).Value())
-		}
 
 		// Check if mf:action is a URI or a blank node (SPARQL tests use blank node)
 		if v, ok := g.Value(subj, &actionPred, nil); ok {
@@ -109,18 +127,64 @@ func ParseManifest(manifestPath string) (*Manifest, error) {
 			case term.URIRef:
 				e.Action = toFilePath(av.Value())
 			case term.Subject:
-				// SPARQL manifest: action is a blank node with qt:query, qt:data, qt:graphData
+				// SPARQL query manifest: qt:query, qt:data, qt:graphData
 				if qv, ok := g.Value(av, &queryPred, nil); ok {
 					e.Query = toFilePath(qv.(term.URIRef).Value())
 				}
 				if dv, ok := g.Value(av, &dataPred, nil); ok {
 					e.Data = toFilePath(dv.(term.URIRef).Value())
 				}
-				// Collect all qt:graphData entries
 				for gd := range g.Triples(av, &graphDataPred, nil) {
 					if u, ok := gd.Object.(term.URIRef); ok {
 						e.GraphData = append(e.GraphData, toFilePath(u.Value()))
 					}
+				}
+				// SPARQL update manifest: ut:request, ut:data, ut:graphData
+				if rv, ok := g.Value(av, &utRequest, nil); ok {
+					e.Request = toFilePath(rv.(term.URIRef).Value())
+				}
+				if dv, ok := g.Value(av, &utData, nil); ok {
+					e.ActionData = toFilePath(dv.(term.URIRef).Value())
+				}
+				for gd := range g.Triples(av, &utGraphData, nil) {
+					gdNode, ok := gd.Object.(term.Subject)
+					if !ok {
+						continue
+					}
+					var ref NamedGraphRef
+					if gv, ok := g.Value(gdNode, &utGraph, nil); ok {
+						ref.Graph = toFilePath(gv.(term.URIRef).Value())
+					}
+					if lv, ok := g.Value(gdNode, &rdfsLabel, nil); ok {
+						ref.Label = lv.(term.Literal).Lexical()
+					}
+					e.ActionGraphData = append(e.ActionGraphData, ref)
+				}
+			}
+		}
+
+		// Parse mf:result for update tests (blank node with ut:data, ut:graphData)
+		if v, ok := g.Value(subj, &resultPred, nil); ok {
+			switch rv := v.(type) {
+			case term.URIRef:
+				e.Result = toFilePath(rv.Value())
+			case term.Subject:
+				if dv, ok := g.Value(rv, &utData, nil); ok {
+					e.ResultData = toFilePath(dv.(term.URIRef).Value())
+				}
+				for gd := range g.Triples(rv, &utGraphData, nil) {
+					gdNode, ok := gd.Object.(term.Subject)
+					if !ok {
+						continue
+					}
+					var ref NamedGraphRef
+					if gv, ok := g.Value(gdNode, &utGraph, nil); ok {
+						ref.Graph = toFilePath(gv.(term.URIRef).Value())
+					}
+					if lv, ok := g.Value(gdNode, &rdfsLabel, nil); ok {
+						ref.Label = lv.(term.Literal).Lexical()
+					}
+					e.ResultGraphData = append(e.ResultGraphData, ref)
 				}
 			}
 		}
