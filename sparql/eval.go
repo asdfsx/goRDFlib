@@ -1347,6 +1347,12 @@ func termValuesEqual(a, b rdflibgo.Term) bool {
 			}
 			return fa == fb
 		}
+		// Date/dateTime/time value equality
+		if isDateDatatype(la.Datatype()) && isDateDatatype(lb.Datatype()) {
+			if ta, tb, ok := parseDatePair(la, lb); ok {
+				return ta.Equal(tb)
+			}
+		}
 		if la.Language() != "" || lb.Language() != "" {
 			return la.Lexical() == lb.Lexical() && la.Language() == lb.Language()
 		}

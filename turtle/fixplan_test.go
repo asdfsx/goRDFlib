@@ -107,3 +107,58 @@ func TestP5_UnicodeEscapeInIRI(t *testing.T) {
 		t.Errorf("P5: expected 1 triple, got %d", g.Len())
 	}
 }
+
+// RDFLib #732 — Single quote escaping in single-quoted strings
+func TestSingleQuoteEscape(t *testing.T) {
+	input := `<http://example.org/s> <http://example.org/p> 'it\'s fine' .
+`
+	g := rdflibgo.NewGraph()
+	err := Parse(g, strings.NewReader(input))
+	if err != nil {
+		t.Fatalf("single quote escape: %v", err)
+	}
+	if g.Len() != 1 {
+		t.Fatalf("expected 1 triple, got %d", g.Len())
+	}
+	// Verify the value
+	var val string
+	g.Triples(nil, nil, nil)(func(triple rdflibgo.Triple) bool {
+		val = triple.Object.(rdflibgo.Literal).Lexical()
+		return false
+	})
+	if val != "it's fine" {
+		t.Errorf("expected \"it's fine\", got %q", val)
+	}
+}
+
+// RDFLib #1655 — N-Triples escape sequences \f, \b
+func TestTurtleEscapeSequences(t *testing.T) {
+	cases := []struct {
+		input string
+		want  string
+	}{
+		{`"tab\there"`, "tab\there"},
+		{`"new\nline"`, "new\nline"},
+		{`"cr\rreturn"`, "cr\rreturn"},
+		{`"back\\slash"`, "back\\slash"},
+		{`"form\ffeed"`, "form\ffeed"},
+		{`"back\bspace"`, "back\bspace"},
+	}
+	for _, tc := range cases {
+		ttl := `<http://ex/s> <http://ex/p> ` + tc.input + ` .`
+		g := rdflibgo.NewGraph()
+		err := Parse(g, strings.NewReader(ttl))
+		if err != nil {
+			t.Errorf("escape %s: parse error: %v", tc.input, err)
+			continue
+		}
+		var got string
+		g.Triples(nil, nil, nil)(func(triple rdflibgo.Triple) bool {
+			got = triple.Object.(rdflibgo.Literal).Lexical()
+			return false
+		})
+		if got != tc.want {
+			t.Errorf("escape %s: got %q, want %q", tc.input, got, tc.want)
+		}
+	}
+}

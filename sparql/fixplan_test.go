@@ -622,6 +622,188 @@ func TestInitBindingsInProjectExpr(t *testing.T) {
 	}
 }
 
+// RDFLib #2475 — STRDT must preserve lexical value for unknown datatypes
+func TestSTRDT_PreservesLexical(t *testing.T) {
+	g := rdflibgo.NewGraph()
+	ex := "http://example.org/"
+	g.Add(rdflibgo.NewURIRefUnsafe(ex+"s"), rdflibgo.NewURIRefUnsafe(ex+"p"), rdflibgo.NewLiteral("<body>"))
+
+	r, err := Query(g, `
+		PREFIX : <http://example.org/>
+		PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+		SELECT (STRDT(?o, rdf:HTML) AS ?tag) WHERE { :s :p ?o }
+	`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(r.Bindings) != 1 {
+		t.Fatalf("expected 1 result, got %d", len(r.Bindings))
+	}
+	tag := r.Bindings[0]["tag"]
+	if tag == nil {
+		t.Fatal("STRDT returned nil")
+	}
+	lit := tag.(rdflibgo.Literal)
+	if lit.Lexical() != "<body>" {
+		t.Errorf("STRDT lexical: expected <body>, got %q", lit.Lexical())
+	}
+}
+
+// RDFLib #619 — FILTERs in multiple subqueries must work independently
+func TestFilterInMultipleSubqueries(t *testing.T) {
+	g := makeFixPlanGraph(t)
+	r, err := Query(g, `
+		PREFIX : <http://example.org/>
+		SELECT ?n1 ?n2 WHERE {
+			{ SELECT ?n1 WHERE { ?s1 :name ?n1 . FILTER(?n1 != "Alice") } }
+			{ SELECT ?n2 WHERE { ?s2 :name ?n2 . FILTER(?n2 != "Bob") } }
+		}
+	`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// n1: Bob, Charlie (2 values); n2: Alice, Charlie (2 values) → 4 results
+	if len(r.Bindings) != 4 {
+		t.Errorf("expected 4 results from two filtered subqueries, got %d", len(r.Bindings))
+	}
+}
+
+// RDFLib #623 — Complex blank node property lists with nested bnodes
+func TestComplexBnodePropertyList(t *testing.T) {
+	g := rdflibgo.NewGraph()
+	ex := "http://example.org/"
+	person := rdflibgo.NewURIRefUnsafe(ex + "Person")
+	alice := rdflibgo.NewURIRefUnsafe(ex + "Alice")
+	idType := rdflibgo.NewURIRefUnsafe(ex + "Identifier")
+	hasId := rdflibgo.NewURIRefUnsafe(ex + "id")
+	hasVal := rdflibgo.NewURIRefUnsafe(ex + "has-value")
+
+	g.Add(alice, rdflibgo.RDF.Type, person)
+	bn := rdflibgo.NewBNode("")
+	g.Add(alice, hasId, bn)
+	g.Add(bn, rdflibgo.RDF.Type, idType)
+	g.Add(bn, hasVal, rdflibgo.NewLiteral("ID-001"))
+
+	r, err := Query(g, `
+		PREFIX : <http://example.org/>
+		SELECT ?s ?id WHERE {
+			?s a :Person ;
+			   :id [ a :Identifier ; :has-value ?id ] .
+		}
+	`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(r.Bindings) != 1 {
+		t.Fatalf("expected 1 result, got %d", len(r.Bindings))
+	}
+	id := r.Bindings[0]["id"].(rdflibgo.Literal).Lexical()
+	if id != "ID-001" {
+		t.Errorf("expected ID-001, got %s", id)
+	}
+}
+
+// RDFLib #633 — DELETE/INSERT WHERE with OPTIONAL unbound vars
+func TestDeleteInsertWithOptionalUnbound(t *testing.T) {
+	g := rdflibgo.NewGraph()
+	ex := "http://example.org/"
+	s := rdflibgo.NewURIRefUnsafe(ex + "s")
+	p := rdflibgo.NewURIRefUnsafe(ex + "p")
+	_ = rdflibgo.NewURIRefUnsafe(ex + "q")
+	g.Add(s, p, rdflibgo.NewLiteral("val"))
+	// s has no :q triple — so ?opt will be unbound
+
+	ds := Dataset{Default: g}
+	err := Update(&ds, `
+		PREFIX : <http://example.org/>
+		DELETE { ?s :old ?opt }
+		INSERT { ?s :new ?val }
+		WHERE {
+			?s :p ?val .
+			OPTIONAL { ?s :q ?opt }
+		}
+	`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Should not crash; :new triple should be inserted
+	if g.Len() != 2 { // original :p triple + new :new triple
+		t.Errorf("expected 2 triples after update, got %d", g.Len())
+	}
+}
+
+// RDFLib #648 — dateTime with timezone vs without
+func TestDateTimeTimezoneComparison(t *testing.T) {
+	g := rdflibgo.NewGraph()
+	ex := "http://example.org/"
+	s := rdflibgo.NewURIRefUnsafe(ex + "e")
+	g.Add(s, rdflibgo.NewURIRefUnsafe(ex+"a"),
+		rdflibgo.NewLiteral("2023-01-15T10:00:00Z", rdflibgo.WithDatatype(rdflibgo.XSDDateTime)))
+	g.Add(s, rdflibgo.NewURIRefUnsafe(ex+"b"),
+		rdflibgo.NewLiteral("2023-01-15T12:00:00+02:00", rdflibgo.WithDatatype(rdflibgo.XSDDateTime)))
+
+	r, err := Query(g, `
+		PREFIX : <http://example.org/>
+		SELECT ?s WHERE {
+			?s :a ?a . ?s :b ?b .
+			FILTER(?a = ?b)
+		}
+	`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// 10:00:00Z == 12:00:00+02:00 (same instant)
+	if len(r.Bindings) != 1 {
+		t.Errorf("timezone-aware dateTime comparison: expected 1 result, got %d", len(r.Bindings))
+	}
+}
+
+// RDFLib #554 — SELECT with empty WHERE
+func TestSelectEmptyWhere(t *testing.T) {
+	g := rdflibgo.NewGraph()
+	g.Add(rdflibgo.NewURIRefUnsafe("http://example.org/s"),
+		rdflibgo.NewURIRefUnsafe("http://example.org/p"), rdflibgo.NewLiteral("x"))
+
+	// Per SPARQL spec, empty WHERE = 1 solution (empty mapping)
+	// Projecting an unbound variable should yield 1 row with ?x = nil
+	r, err := Query(g, `SELECT ?x WHERE {}`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(r.Bindings) != 1 {
+		t.Errorf("empty WHERE should produce 1 solution, got %d", len(r.Bindings))
+	}
+}
+
+// RDFLib #977 — Consistent prefix substitution in serializer
+func TestStrdtPreservesUnknownDatatype(t *testing.T) {
+	g := rdflibgo.NewGraph()
+	ex := "http://example.org/"
+	g.Add(rdflibgo.NewURIRefUnsafe(ex+"s"), rdflibgo.NewURIRefUnsafe(ex+"p"), rdflibgo.NewLiteral("test"))
+
+	r, err := Query(g, `
+		PREFIX : <http://example.org/>
+		SELECT (STRDT(?o, :CustomType) AS ?typed) WHERE { :s :p ?o }
+	`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(r.Bindings) != 1 {
+		t.Fatalf("expected 1 result, got %d", len(r.Bindings))
+	}
+	typed := r.Bindings[0]["typed"]
+	if typed == nil {
+		t.Fatal("STRDT with custom datatype returned nil")
+	}
+	lit := typed.(rdflibgo.Literal)
+	if lit.Lexical() != "test" {
+		t.Errorf("expected lexical 'test', got %q", lit.Lexical())
+	}
+	if lit.Datatype().Value() != ex+"CustomType" {
+		t.Errorf("expected datatype %sCustomType, got %s", ex, lit.Datatype().Value())
+	}
+}
+
 func extractVarValues(bindings []map[string]rdflibgo.Term, varName string) []string {
 	var result []string
 	for _, b := range bindings {
