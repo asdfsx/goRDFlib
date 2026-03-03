@@ -4,7 +4,7 @@ package term
 // Per the RDF 1.2 spec, triple terms can only appear in the object position.
 // The subject of a triple term must be a URIRef or BNode (not another TripleTerm).
 // The predicate must be a URIRef. The object can be any Term including another TripleTerm.
-// Not safe for concurrent use (immutable after construction).
+// Safe for concurrent use; immutable after construction.
 type TripleTerm struct {
 	subject   Subject
 	predicate URIRef
@@ -41,9 +41,15 @@ func (t TripleTerm) Equal(other Term) bool {
 	return false
 }
 
-// NewTripleTerm creates a new TripleTerm.
+// NewTripleTerm creates a new TripleTerm. Panics if subject or object is nil.
 func NewTripleTerm(subject Subject, predicate URIRef, object Term) TripleTerm {
-	key := "T:" + TermKey(subject) + "|" + TermKey(predicate) + "|" + TermKey(object)
+	if subject == nil {
+		panic("term: NewTripleTerm called with nil subject")
+	}
+	if object == nil {
+		panic("term: NewTripleTerm called with nil object")
+	}
+	key := "T:" + TermKey(subject) + "\x00" + TermKey(predicate) + "\x00" + TermKey(object)
 	return TripleTerm{
 		subject:   subject,
 		predicate: predicate,

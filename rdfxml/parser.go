@@ -398,7 +398,7 @@ func (p *rdfxmlParser) parsePropertyElement(decoder *xml.Decoder, el xml.StartEl
 			// Empty property element with property attributes → create blank node.
 			obj := rdflibgo.NewBNode()
 			p.g.Add(subj, pred, obj)
-			p.emitPropertyAttrs(obj, propAttrs, lang)
+			p.emitPropertyAttrs(obj, propAttrs, lang, its)
 			if reifyID != "" {
 				p.emitReification(reifyID, subj, pred, obj)
 			}
@@ -418,7 +418,7 @@ func (p *rdfxmlParser) parsePropertyElement(decoder *xml.Decoder, el xml.StartEl
 		p.g.Add(subj, pred, obj)
 		if len(propAttrs) > 0 {
 			if objSubj, ok := obj.(rdflibgo.Subject); ok {
-				p.emitPropertyAttrs(objSubj, propAttrs, lang)
+				p.emitPropertyAttrs(objSubj, propAttrs, lang, its)
 			}
 		}
 		if reifyID != "" {
@@ -569,18 +569,15 @@ func (p *rdfxmlParser) parseCollection(decoder *xml.Decoder, subj rdflibgo.Subje
 	}
 }
 
-func (p *rdfxmlParser) emitPropertyAttrs(subj rdflibgo.Subject, attrs []xml.Attr, lang string) {
+func (p *rdfxmlParser) emitPropertyAttrs(subj rdflibgo.Subject, attrs []xml.Attr, lang string, its itsContext) {
 	for _, attr := range attrs {
 		attrURI := attr.Name.Space + attr.Name.Local
 		if isRDFAttr(attr) && attr.Name.Local == "type" {
 			p.g.Add(subj, rdflibgo.RDF.Type, rdflibgo.NewURIRefUnsafe(p.resolve(attr.Value)))
 			continue
 		}
-		var opts []rdflibgo.LiteralOption
-		if lang != "" {
-			opts = append(opts, rdflibgo.WithLang(lang))
-		}
-		p.g.Add(subj, rdflibgo.NewURIRefUnsafe(attrURI), rdflibgo.NewLiteral(attr.Value, opts...))
+		litOpts := p.langOpts(lang, its)
+		p.g.Add(subj, rdflibgo.NewURIRefUnsafe(attrURI), rdflibgo.NewLiteral(attr.Value, litOpts...))
 	}
 }
 
@@ -588,7 +585,9 @@ func (p *rdfxmlParser) emitPropertyAttrs(subj rdflibgo.Subject, attrs []xml.Attr
 // Parses exactly one child node element with exactly one property to form a triple term.
 func (p *rdfxmlParser) parseTripleParseType(decoder *xml.Decoder, subj rdflibgo.Subject, pred rdflibgo.URIRef, reifyID, annotIRI, annotNodeID, lang string, its itsContext) error {
 	if p.rdfVersion != "1.2" {
-		// Silently ignore parseType="Triple" without rdf:version="1.2"
+		// Per RDF 1.2 XML Syntax §3, parseType="Triple" is only recognized when
+		// rdf:version="1.2" is declared. Without it, the element is silently skipped
+		// (W3C test rdf12-xml-tt-01 confirms empty output).
 		decoder.Skip()
 		return nil
 	}
@@ -630,7 +629,7 @@ func (p *rdfxmlParser) parseTripleParseType(decoder *xml.Decoder, subj rdflibgo.
 			}
 			innerT := triples[0]
 			tt := rdflibgo.NewTripleTerm(innerT.Subject, innerT.Predicate, innerT.Object)
-			p.g = savedG
+			p.g = savedG // restore before adding to real graph; defer is a safety net
 			p.g.Add(subj, pred, tt)
 			if reifyID != "" {
 				p.emitReification(reifyID, subj, pred, tt)

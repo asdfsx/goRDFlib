@@ -184,18 +184,6 @@ func bnodeSet(ts []triple) []string {
 	return result
 }
 
-// termHasBNodeValue checks if a term contains a specific bnode value.
-func termContainsBNode(t term.Term) bool {
-	switch v := t.(type) {
-	case term.BNode:
-		return true
-	case term.TripleTerm:
-		return termContainsBNode(v.Subject()) || termContainsBNode(v.Object())
-	default:
-		return false
-	}
-}
-
 // termSigString returns a signature for a term, replacing bnodes with "_".
 func termSigString(t term.Term) string {
 	switch v := t.(type) {

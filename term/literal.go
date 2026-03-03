@@ -25,7 +25,8 @@ type LiteralOption func(*Literal)
 var langTagRegex = regexp.MustCompile(`^[a-zA-Z]{1,8}(-[a-zA-Z0-9]{1,8})*$`)
 
 // WithLang sets the language tag. The tag is normalized to lowercase.
-// Invalid tags (per RFC 5646 simplified pattern) are silently ignored.
+// Invalid tags (per RFC 5646 simplified pattern) are silently ignored
+// to match Python rdflib behavior; RDF 1.1 Concepts §3.3 says tags SHOULD be valid BCP 47.
 func WithLang(lang string) LiteralOption {
 	return func(l *Literal) {
 		if lang != "" && !langTagRegex.MatchString(lang) {
