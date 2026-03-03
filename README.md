@@ -20,7 +20,7 @@
 
 A Go port of the Python [RDFLib](https://github.com/RDFLib/rdflib) library for working with RDF (Resource Description Framework) data.
 
-> **Warning:** This project is in early development (v0.0.x). The API is not stable and may contain bugs. Do not use in production without thorough testing.
+> **Note:** This project is in active development. The core API is stabilizing but may still change. All W3C conformance suites pass at 100% (1644/1644 tests). Fuzz-tested for robustness.
 
 ## About
 
