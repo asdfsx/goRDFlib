@@ -284,6 +284,7 @@ func (p *rdfxmlParser) parsePropertyElement(decoder *xml.Decoder, el xml.StartEl
 	}
 
 	var resource, nodeID, parseType, datatype, reifyID string
+	var hasResource bool
 	var propAttrs []xml.Attr
 
 	for _, attr := range el.Attr {
@@ -294,6 +295,7 @@ func (p *rdfxmlParser) parsePropertyElement(decoder *xml.Decoder, el xml.StartEl
 			switch attr.Name.Local {
 			case "resource":
 				resource = attr.Value
+				hasResource = true
 			case "nodeID":
 				nodeID = attr.Value
 			case "parseType":
@@ -330,7 +332,7 @@ func (p *rdfxmlParser) parsePropertyElement(decoder *xml.Decoder, el xml.StartEl
 	if parseType == "Literal" && nodeID != "" {
 		return fmt.Errorf("rdf/xml: rdf:parseType='Literal' and rdf:nodeID cannot be combined")
 	}
-	if resource != "" && nodeID != "" {
+	if hasResource && nodeID != "" {
 		return fmt.Errorf("rdf/xml: rdf:resource and rdf:nodeID cannot be combined")
 	}
 
@@ -341,7 +343,7 @@ func (p *rdfxmlParser) parsePropertyElement(decoder *xml.Decoder, el xml.StartEl
 	}
 
 	// Case 1: rdf:resource or rdf:nodeID → resource property element.
-	if resource != "" || nodeID != "" || len(propAttrs) > 0 {
+	if hasResource || nodeID != "" || len(propAttrs) > 0 {
 		// This is a resource-valued property or has property attributes.
 		if resource == "" && nodeID == "" && len(propAttrs) > 0 {
 			// Empty property element with property attributes → create blank node.
@@ -355,7 +357,7 @@ func (p *rdfxmlParser) parsePropertyElement(decoder *xml.Decoder, el xml.StartEl
 			return nil
 		}
 		var obj rdflibgo.Term
-		if resource != "" {
+		if hasResource {
 			obj = rdflibgo.NewURIRefUnsafe(p.resolve(resource))
 		} else {
 			if !isValidNCName(nodeID) {

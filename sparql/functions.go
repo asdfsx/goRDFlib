@@ -142,25 +142,30 @@ func evalFunc(name string, args []Expr, bindings map[string]rdflibgo.Term, prefi
 		var sb strings.Builder
 		// Track language and datatype: preserve only if ALL args match
 		var commonLang *string
-		var commonDt *rdflibgo.URIRef
+		hasError := false
 		for _, v := range vals {
+			if v == nil {
+				hasError = true
+				continue
+			}
+			// CONCAT requires string-compatible arguments
+			if !isStringLiteral(v) {
+				hasError = true
+				continue
+			}
 			sb.WriteString(termString(v))
 			if l, ok := v.(rdflibgo.Literal); ok {
 				lang := l.Language()
-				dt := l.Datatype()
 				if commonLang == nil {
 					commonLang = &lang
 				} else if *commonLang != lang {
 					empty := ""
 					commonLang = &empty
 				}
-				if commonDt == nil {
-					commonDt = &dt
-				} else if commonDt.Value() != dt.Value() {
-					xsdStr := rdflibgo.XSDString
-					commonDt = &xsdStr
-				}
 			}
+		}
+		if hasError {
+			return nil
 		}
 		var opts []rdflibgo.LiteralOption
 		if commonLang != nil && *commonLang != "" {
