@@ -311,6 +311,7 @@ func TestNegativeSyntax(t *testing.T) {
 		{"nested aggregates", `SELECT (COUNT(COUNT(*)) AS ?c) WHERE {}`},
 		{"duplicate VALUES vars", `SELECT * WHERE { VALUES (?a ?a) { (1 1) } }`},
 		{"invalid lang direction", `SELECT ("foo"@en--foo AS ?v) WHERE {}`},
+		{"bnode subject in ExprTripleTerm", `SELECT * WHERE { BIND(<<( _:b <http://p> <http://o> )>> AS ?t) }`},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
@@ -319,6 +320,23 @@ func TestNegativeSyntax(t *testing.T) {
 				t.Errorf("expected parse error for: %s", tc.query)
 			}
 		})
+	}
+}
+
+func TestTripleTermDataSubjectMustBeIRI(t *testing.T) {
+	ds := &sparql.Dataset{
+		Default:     rdflibgo.NewGraph(),
+		NamedGraphs: map[string]*rdflibgo.Graph{},
+	}
+	// Blank node as subject in triple term DATA should fail (rule [123])
+	err := sparql.Update(ds, `INSERT DATA { <http://ex/s> <http://ex/p> <<( _:b <http://ex/q> <http://ex/o> )>> }`)
+	if err == nil {
+		t.Error("expected error: blank node subject in triple term data")
+	}
+	// IRI subject should succeed
+	err = sparql.Update(ds, `INSERT DATA { <http://ex/s> <http://ex/p> <<( <http://ex/a> <http://ex/q> <http://ex/o> )>> }`)
+	if err != nil {
+		t.Fatalf("expected success for IRI subject in triple term data: %v", err)
 	}
 }
 

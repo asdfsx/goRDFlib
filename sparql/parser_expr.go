@@ -292,14 +292,21 @@ func (p *sparqlParser) parsePrimaryExpr() (Expr, error) {
 				if err != nil {
 					return nil, err
 				}
-				// Validate: subject must not be a literal constant or nested triple term
-				if le, ok := sExpr.(*LiteralExpr); ok && le.Value != nil {
-					if _, isLit := le.Value.(rdflibgo.Literal); isLit {
-						return nil, p.errorf("literal in subject position of triple term")
+				// ExprTripleTermSubject ::= iri | Var (SPARQL 1.2 rule [138])
+				switch se := sExpr.(type) {
+				case *VarExpr:
+					// ok
+				case *IRIExpr:
+					// ok
+				case *LiteralExpr:
+					// resolveTermValue may return URIRef wrapped in LiteralExpr
+					if se.Value != nil {
+						if _, isURI := se.Value.(rdflibgo.URIRef); !isURI {
+							return nil, p.errorf("only IRI or variable allowed in subject of triple term expression")
+						}
 					}
-				}
-				if fe, ok := sExpr.(*FuncExpr); ok && fe.Name == "TRIPLE" {
-					return nil, p.errorf("triple term in subject position of triple term")
+				default:
+					return nil, p.errorf("only IRI or variable allowed in subject of triple term expression")
 				}
 				p.skipWS()
 				pExpr, err := p.parseExprOrTermInTriple()

@@ -317,6 +317,31 @@ func validateTripleTerms(p Pattern) error {
 	return nil
 }
 
+// validateTripleTermData checks that a triple term in DATA context conforms to
+// SPARQL 1.2 rule [122-124]: TripleTermDataSubject must be IRI only.
+func validateTripleTermData(s string) error {
+	if !strings.HasPrefix(s, "<<( ") {
+		return nil
+	}
+	inner := s[4 : len(s)-4]
+	parts := splitTripleTermParts(inner)
+	if len(parts) != 3 {
+		return nil
+	}
+	subj := parts[0]
+	// TripleTermDataSubject ::= iri (rule [123]) — no bnodes, literals, variables, or nested triple terms
+	if strings.HasPrefix(subj, "_:") || strings.HasPrefix(subj, "\"") || strings.HasPrefix(subj, "'") ||
+		strings.HasPrefix(subj, "?") || strings.HasPrefix(subj, "$") || strings.HasPrefix(subj, "<<(") {
+		return fmt.Errorf("sparql parse error: only IRI allowed as subject in triple term data, got %s", subj)
+	}
+	// Recursively validate nested triple terms in object position
+	obj := parts[2]
+	if strings.HasPrefix(obj, "<<( ") {
+		return validateTripleTermData(obj)
+	}
+	return nil
+}
+
 // validateTripleTermString checks that a triple term string is valid:
 // - No collection syntax inside triple terms
 // - Subject of triple term must not be a literal or another triple term

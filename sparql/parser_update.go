@@ -365,6 +365,13 @@ func (p *sparqlParser) parseQuadData(isDelete bool) ([]QuadPattern, error) {
 			if strings.HasPrefix(t.Subject, "?") || strings.HasPrefix(t.Predicate, "?") || strings.HasPrefix(t.Object, "?") {
 				return nil, p.errorf("variable not allowed in %s DATA", map[bool]string{true: "DELETE", false: "INSERT"}[isDelete])
 			}
+			// SPARQL 1.2 rule [123]: TripleTermDataSubject must be IRI only
+			if err := validateTripleTermData(t.Subject); err != nil {
+				return nil, err
+			}
+			if err := validateTripleTermData(t.Object); err != nil {
+				return nil, err
+			}
 		}
 		defaultTriples = append(defaultTriples, triples...)
 	}
