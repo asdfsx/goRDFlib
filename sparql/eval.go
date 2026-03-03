@@ -1001,6 +1001,10 @@ func tripleTermHasVariables(s string) bool {
 		if strings.HasPrefix(p, "?") {
 			return true
 		}
+		// Recursively check nested triple terms
+		if strings.HasPrefix(p, "<<( ") && tripleTermHasVariables(p) {
+			return true
+		}
 	}
 	return false
 }
