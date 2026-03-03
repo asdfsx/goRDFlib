@@ -101,6 +101,12 @@ func (ts *turtleState) preprocess() {
 
 // trackNS registers a namespace as used if the term is a URIRef with a known prefix.
 func (ts *turtleState) trackNS(t rdflibgo.Term) {
+	if tt, ok := t.(rdflibgo.TripleTerm); ok {
+		ts.trackNS(tt.Subject())
+		ts.trackNS(tt.Predicate())
+		ts.trackNS(tt.Object())
+		return
+	}
 	u, ok := t.(rdflibgo.URIRef)
 	if !ok {
 		return
@@ -438,6 +444,8 @@ func (ts *turtleState) objectStr(t rdflibgo.Term) (string, error) {
 		return v.N3(), nil
 	case rdflibgo.Literal:
 		return ts.literalStr(v), nil
+	case rdflibgo.TripleTerm:
+		return ts.tripleTermStr(v)
 	default:
 		return t.N3(), nil
 	}
@@ -513,6 +521,17 @@ func isValidLocalName(s string) bool {
 		return false
 	}
 	return true
+}
+
+// tripleTermStr serializes a TripleTerm as <<( s p o )>>.
+func (ts *turtleState) tripleTermStr(tt rdflibgo.TripleTerm) (string, error) {
+	s := ts.label(tt.Subject())
+	pred := ts.qnameOrFull(tt.Predicate())
+	o, err := ts.objectStr(tt.Object())
+	if err != nil {
+		return "", err
+	}
+	return "<<( " + s + " " + pred + " " + o + " )>>", nil
 }
 
 // isPNCharsU returns true if the rune matches PN_CHARS_U (PN_CHARS_BASE | '_').

@@ -11,6 +11,8 @@ func TermKey(t Term) string {
 		return v.key
 	case Literal:
 		return "L:" + v.N3()
+	case TripleTerm:
+		return v.key
 	case Variable:
 		return "V:" + v.Name
 	default:

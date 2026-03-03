@@ -31,6 +31,12 @@ const RDFNamespace = "http://www.w3.org/1999/02/22-rdf-syntax-ns#"
 // RDFLangString is the datatype for language-tagged literals per RDF 1.1.
 var RDFLangString = NewURIRefUnsafe(RDFNamespace + "langString")
 
+// RDFDirLangString is the datatype for directional language-tagged literals per RDF 1.2.
+var RDFDirLangString = NewURIRefUnsafe(RDFNamespace + "dirLangString")
+
+// RDFReifies is the rdf:reifies predicate for RDF 1.2 reification.
+var RDFReifies = NewURIRefUnsafe(RDFNamespace + "reifies")
+
 // goToLexical is the shared implementation for converting Go values to
 // lexical form + XSD datatype. Used by both GoToLexical and NewLiteral.
 func goToLexical(value any) (string, URIRef) {

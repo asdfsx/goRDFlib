@@ -27,6 +27,7 @@ type (
 	BNode            = term.BNode
 	Literal          = term.Literal
 	Variable         = term.Variable
+	TripleTerm       = term.TripleTerm
 	LiteralOption    = term.LiteralOption
 	Triple           = term.Triple
 	Quad             = term.Quad
@@ -117,7 +118,9 @@ var (
 	XSDDate       = term.XSDDate
 	XSDTime       = term.XSDTime
 	XSDAnyURI     = term.XSDAnyURI
-	RDFLangString = term.RDFLangString
+	RDFLangString    = term.RDFLangString
+	RDFDirLangString = term.RDFDirLangString
+	RDFReifies       = term.RDFReifies
 )
 
 // --- Built-in namespace instances ---
@@ -149,7 +152,11 @@ func NewBNode(id ...string) BNode                         { return term.NewBNode
 func NewLiteral(value any, opts ...LiteralOption) Literal { return term.NewLiteral(value, opts...) }
 func NewVariable(name string) Variable                    { return term.NewVariable(name) }
 func WithLang(lang string) LiteralOption                  { return term.WithLang(lang) }
+func WithDir(dir string) LiteralOption                    { return term.WithDir(dir) }
 func WithDatatype(dt URIRef) LiteralOption                { return term.WithDatatype(dt) }
+func NewTripleTerm(s Subject, p URIRef, o Term) TripleTerm {
+	return term.NewTripleTerm(s, p, o)
+}
 func GoToLexical(value any) (string, URIRef)              { return term.GoToLexical(value) }
 func CompareTerm(a, b Term) int                           { return term.CompareTerm(a, b) }
 func SortTerms(terms []Term)                              { term.SortTerms(terms) }

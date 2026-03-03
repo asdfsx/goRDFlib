@@ -18,9 +18,28 @@ func Term(t rdflibgo.Term) (string, error) {
 		return "_:" + v.Value(), nil
 	case rdflibgo.Literal:
 		return Literal(v), nil
+	case rdflibgo.TripleTerm:
+		return TripleTermStr(v)
 	default:
 		return "", fmt.Errorf("unsupported term type %T for N-Triples serialization", t)
 	}
+}
+
+// TripleTermStr serializes a TripleTerm to N-Triples syntax: <<( <s> <p> <o> )>>.
+func TripleTermStr(tt rdflibgo.TripleTerm) (string, error) {
+	s, err := Term(tt.Subject())
+	if err != nil {
+		return "", err
+	}
+	p, err := Term(tt.Predicate())
+	if err != nil {
+		return "", err
+	}
+	o, err := Term(tt.Object())
+	if err != nil {
+		return "", err
+	}
+	return "<<( " + s + " " + p + " " + o + " )>>", nil
 }
 
 // Literal serializes a Literal to N-Triples syntax.
@@ -28,6 +47,9 @@ func Literal(l rdflibgo.Literal) string {
 	escaped := EscapeString(l.Lexical())
 	quoted := `"` + escaped + `"`
 	if l.Language() != "" {
+		if l.Dir() != "" {
+			return quoted + "@" + l.Language() + "--" + l.Dir()
+		}
 		return quoted + "@" + l.Language()
 	}
 	if l.Datatype() != (rdflibgo.URIRef{}) && l.Datatype() != rdflibgo.XSDString {

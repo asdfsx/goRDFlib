@@ -1,0 +1,53 @@
+package term
+
+// TripleTerm represents an RDF 1.2 triple term — a triple used as a term.
+// Per the RDF 1.2 spec, triple terms can only appear in the object position.
+// The subject of a triple term must be a URIRef or BNode (not another TripleTerm).
+// The predicate must be a URIRef. The object can be any Term including another TripleTerm.
+// Not safe for concurrent use (immutable after construction).
+type TripleTerm struct {
+	subject   Subject
+	predicate URIRef
+	object    Term
+	key       string // cached TermKey
+}
+
+func (t TripleTerm) termType() string { return "TripleTerm" }
+
+// Subject returns the subject of the triple term.
+func (t TripleTerm) Subject() Subject { return t.subject }
+
+// Predicate returns the predicate of the triple term.
+func (t TripleTerm) Predicate() URIRef { return t.predicate }
+
+// Object returns the object of the triple term.
+func (t TripleTerm) Object() Term { return t.object }
+
+// N3 returns the N-Triples/N3 representation: <<( <s> <p> <o> )>>.
+func (t TripleTerm) N3(ns ...NamespaceManager) string {
+	return "<<( " + t.subject.N3(ns...) + " " + t.predicate.N3(ns...) + " " + t.object.N3(ns...) + " )>>"
+}
+
+// String returns a human-readable representation.
+func (t TripleTerm) String() string {
+	return "<<( " + t.subject.String() + " " + t.predicate.String() + " " + t.object.String() + " )>>"
+}
+
+// Equal returns true if other is a TripleTerm with equal subject, predicate, and object.
+func (t TripleTerm) Equal(other Term) bool {
+	if o, ok := other.(TripleTerm); ok {
+		return t.subject.Equal(o.subject) && t.predicate.Equal(o.predicate) && t.object.Equal(o.object)
+	}
+	return false
+}
+
+// NewTripleTerm creates a new TripleTerm.
+func NewTripleTerm(subject Subject, predicate URIRef, object Term) TripleTerm {
+	key := "T:" + TermKey(subject) + "|" + TermKey(predicate) + "|" + TermKey(object)
+	return TripleTerm{
+		subject:   subject,
+		predicate: predicate,
+		object:    object,
+		key:       key,
+	}
+}

@@ -54,14 +54,22 @@ func collectTriples(g *graph.Graph) []triple {
 
 func hasBNodes(ts []triple) bool {
 	for _, t := range ts {
-		if _, ok := t.s.(term.BNode); ok {
-			return true
-		}
-		if _, ok := t.o.(term.BNode); ok {
+		if termHasBNode(t.s) || termHasBNode(t.o) {
 			return true
 		}
 	}
 	return false
+}
+
+func termHasBNode(t term.Term) bool {
+	switch v := t.(type) {
+	case term.BNode:
+		return true
+	case term.TripleTerm:
+		return termHasBNode(v.Subject()) || termHasBNode(v.Object())
+	default:
+		return false
+	}
 }
 
 func tripleSet(ts []triple) map[string]bool {
@@ -77,16 +85,7 @@ func tripleKey(t triple) string {
 }
 
 func termN3(t term.Term) string {
-	switch v := t.(type) {
-	case term.URIRef:
-		return v.N3()
-	case term.BNode:
-		return v.N3()
-	case term.Literal:
-		return v.N3()
-	default:
-		return fmt.Sprintf("%v", t)
-	}
+	return t.N3()
 }
 
 // isomorphic checks whether two sets of triples are isomorphic under blank-node
@@ -165,12 +164,17 @@ func isomorphic(exp, act []triple) bool {
 func bnodeSet(ts []triple) []string {
 	seen := map[string]bool{}
 	var result []string
-	add := func(t term.Term) {
-		if b, ok := t.(term.BNode); ok {
-			if !seen[b.Value()] {
-				seen[b.Value()] = true
-				result = append(result, b.Value())
+	var add func(t term.Term)
+	add = func(t term.Term) {
+		switch v := t.(type) {
+		case term.BNode:
+			if !seen[v.Value()] {
+				seen[v.Value()] = true
+				result = append(result, v.Value())
 			}
+		case term.TripleTerm:
+			add(v.Subject())
+			add(v.Object())
 		}
 	}
 	for _, tr := range ts {
@@ -178,6 +182,30 @@ func bnodeSet(ts []triple) []string {
 		add(tr.o)
 	}
 	return result
+}
+
+// termHasBNodeValue checks if a term contains a specific bnode value.
+func termContainsBNode(t term.Term) bool {
+	switch v := t.(type) {
+	case term.BNode:
+		return true
+	case term.TripleTerm:
+		return termContainsBNode(v.Subject()) || termContainsBNode(v.Object())
+	default:
+		return false
+	}
+}
+
+// termSigString returns a signature for a term, replacing bnodes with "_".
+func termSigString(t term.Term) string {
+	switch v := t.(type) {
+	case term.BNode:
+		return "_"
+	case term.TripleTerm:
+		return "<<( " + termSigString(v.Subject()) + " " + v.Predicate().N3() + " " + termSigString(v.Object()) + " )>>"
+	default:
+		return t.N3()
+	}
 }
 
 // bnodeSigs builds a canonical signature string for each bnode based on its
@@ -189,22 +217,16 @@ func bnodeSigs(ts []triple) map[string]string {
 
 	for _, tr := range ts {
 		pred := tr.p.(term.URIRef).Value()
-		sb, sbOk := tr.s.(term.BNode)
-		ob, obOk := tr.o.(term.BNode)
+		sBNodes := collectBNodeValues(tr.s)
+		oBNodes := collectBNodeValues(tr.o)
 
-		if sbOk {
-			other := "_"
-			if !obOk {
-				other = termN3(tr.o)
-			}
-			m[sb.Value()] = append(m[sb.Value()], entry{"S", pred, other})
+		for _, sb := range sBNodes {
+			other := termSigString(tr.o)
+			m[sb] = append(m[sb], entry{"S", pred, other})
 		}
-		if obOk {
-			other := "_"
-			if !sbOk {
-				other = termN3(tr.s)
-			}
-			m[ob.Value()] = append(m[ob.Value()], entry{"O", pred, other})
+		for _, ob := range oBNodes {
+			other := termSigString(tr.s)
+			m[ob] = append(m[ob], entry{"O", pred, other})
 		}
 	}
 
@@ -220,6 +242,19 @@ func bnodeSigs(ts []triple) map[string]string {
 		sigs[bn] = strings.Join(strs, "\n")
 	}
 	return sigs
+}
+
+// collectBNodeValues returns the values of all BNodes in a term (including inside TripleTerms).
+func collectBNodeValues(t term.Term) []string {
+	var result []string
+	switch v := t.(type) {
+	case term.BNode:
+		result = append(result, v.Value())
+	case term.TripleTerm:
+		result = append(result, collectBNodeValues(v.Subject())...)
+		result = append(result, collectBNodeValues(v.Object())...)
+	}
+	return result
 }
 
 func sortStrings(ss []string) {
@@ -257,13 +292,20 @@ func applyMapping(tr triple, mapping map[string]string) string {
 }
 
 func mapTerm(t term.Term, mapping map[string]string) string {
-	if b, ok := t.(term.BNode); ok {
-		if mapped, exists := mapping[b.Value()]; exists {
+	switch v := t.(type) {
+	case term.BNode:
+		if mapped, exists := mapping[v.Value()]; exists {
 			return "_:" + mapped
 		}
-		return b.N3()
+		return v.N3()
+	case term.TripleTerm:
+		s := mapTerm(v.Subject(), mapping)
+		p := v.Predicate().N3()
+		o := mapTerm(v.Object(), mapping)
+		return "<<( " + s + " " + p + " " + o + " )>>"
+	default:
+		return termN3(t)
 	}
-	return termN3(t)
 }
 
 func mapsEqual(a, b map[string]bool) bool {

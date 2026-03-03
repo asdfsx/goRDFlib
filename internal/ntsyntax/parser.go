@@ -59,11 +59,15 @@ func (p *LineParser) ReadSubject() (rdflibgo.Subject, error) {
 	return nil, fmt.Errorf("line %d: expected IRI or blank node for subject", p.LineNum)
 }
 
-// ReadObject parses an IRI, blank node, or literal object.
+// ReadObject parses an IRI, blank node, literal, or triple term object.
 func (p *LineParser) ReadObject() (rdflibgo.Term, error) {
 	p.SkipSpaces()
 	if p.Pos >= len(p.Line) {
 		return nil, fmt.Errorf("line %d: unexpected end", p.LineNum)
+	}
+	// Triple term: <<( s p o )>>
+	if strings.HasPrefix(p.Line[p.Pos:], "<<") {
+		return p.ReadTripleTerm()
 	}
 	if p.Line[p.Pos] == '<' {
 		iri, err := p.ReadIRI()
@@ -86,6 +90,49 @@ func (p *LineParser) ReadObject() (rdflibgo.Term, error) {
 		return p.ReadLiteral()
 	}
 	return nil, fmt.Errorf("line %d: expected IRI, blank node, or literal for object", p.LineNum)
+}
+
+// ReadTripleTerm parses <<( subject predicate object )>>.
+func (p *LineParser) ReadTripleTerm() (rdflibgo.TripleTerm, error) {
+	// Consume "<<"
+	if !strings.HasPrefix(p.Line[p.Pos:], "<<") {
+		return rdflibgo.TripleTerm{}, fmt.Errorf("line %d: expected '<<'", p.LineNum)
+	}
+	p.Pos += 2
+	p.SkipSpaces()
+	if !p.Expect('(') {
+		return rdflibgo.TripleTerm{}, fmt.Errorf("line %d: expected '(' after '<<' (triple term requires '<<(')", p.LineNum)
+	}
+
+	// Subject (IRI or blank node)
+	subj, err := p.ReadSubject()
+	if err != nil {
+		return rdflibgo.TripleTerm{}, fmt.Errorf("line %d: triple term subject: %w", p.LineNum, err)
+	}
+
+	// Predicate (IRI only)
+	pred, err := p.ReadPredicate()
+	if err != nil {
+		return rdflibgo.TripleTerm{}, fmt.Errorf("line %d: triple term predicate: %w", p.LineNum, err)
+	}
+
+	// Object (can be nested triple term)
+	obj, err := p.ReadObject()
+	if err != nil {
+		return rdflibgo.TripleTerm{}, fmt.Errorf("line %d: triple term object: %w", p.LineNum, err)
+	}
+
+	p.SkipSpaces()
+	if !p.Expect(')') {
+		return rdflibgo.TripleTerm{}, fmt.Errorf("line %d: expected ')' in triple term", p.LineNum)
+	}
+	p.SkipSpaces()
+	if !strings.HasPrefix(p.Line[p.Pos:], ">>") {
+		return rdflibgo.TripleTerm{}, fmt.Errorf("line %d: expected '>>' to close triple term", p.LineNum)
+	}
+	p.Pos += 2
+
+	return rdflibgo.NewTripleTerm(subj, pred, obj), nil
 }
 
 // ReadPredicate parses a predicate IRI with validation.
@@ -284,7 +331,24 @@ func (p *LineParser) ReadLiteral() (rdflibgo.Literal, error) {
 		for p.Pos < len(p.Line) && p.Line[p.Pos] != ' ' && p.Line[p.Pos] != '\t' && p.Line[p.Pos] != '.' {
 			p.Pos++
 		}
-		opts = append(opts, rdflibgo.WithLang(p.Line[start:p.Pos]))
+		langDir := p.Line[start:p.Pos]
+		// Check for directional language tag: lang--dir (RDF 1.2)
+		if idx := strings.Index(langDir, "--"); idx >= 0 {
+			lang := langDir[:idx]
+			dir := langDir[idx+2:]
+			if dir != "ltr" && dir != "rtl" {
+				return rdflibgo.Literal{}, fmt.Errorf("line %d: invalid base direction %q (must be ltr or rtl)", p.LineNum, dir)
+			}
+			if !isValidLangTag(lang) {
+				return rdflibgo.Literal{}, fmt.Errorf("line %d: invalid language tag %q", p.LineNum, lang)
+			}
+			opts = append(opts, rdflibgo.WithLang(lang), rdflibgo.WithDir(dir))
+		} else {
+			if !isValidLangTag(langDir) {
+				return rdflibgo.Literal{}, fmt.Errorf("line %d: invalid language tag %q", p.LineNum, langDir)
+			}
+			opts = append(opts, rdflibgo.WithLang(langDir))
+		}
 	} else if p.Pos+1 < len(p.Line) && p.Line[p.Pos] == '^' && p.Line[p.Pos+1] == '^' {
 		p.Pos += 2
 		dt, err := p.ReadIRI()
@@ -297,7 +361,20 @@ func (p *LineParser) ReadLiteral() (rdflibgo.Literal, error) {
 		opts = append(opts, rdflibgo.WithDatatype(rdflibgo.NewURIRefUnsafe(dt)))
 	}
 
-	return rdflibgo.NewLiteral(lexical, opts...), nil
+	lit := rdflibgo.NewLiteral(lexical, opts...)
+
+	// Validate: rdf:langString and rdf:dirLangString require a language tag.
+	if lit.Language() == "" {
+		dt := lit.Datatype()
+		if dt == rdflibgo.RDFLangString {
+			return rdflibgo.Literal{}, fmt.Errorf("line %d: rdf:langString requires a language tag", p.LineNum)
+		}
+		if dt == rdflibgo.RDFDirLangString {
+			return rdflibgo.Literal{}, fmt.Errorf("line %d: rdf:dirLangString requires a language tag", p.LineNum)
+		}
+	}
+
+	return lit, nil
 }
 
 // UnescapeIRI unescapes \uXXXX and \UXXXXXXXX in an IRI string.
@@ -346,6 +423,32 @@ func UnescapeIRI(s string) (string, error) {
 		}
 	}
 	return sb.String(), nil
+}
+
+// isValidLangTag validates a BCP 47 language tag (simplified: 1-8 letter primary
+// subtag, followed by optional hyphen-separated 1-8 alphanumeric subtags).
+func isValidLangTag(tag string) bool {
+	if tag == "" {
+		return false
+	}
+	parts := strings.Split(tag, "-")
+	for i, part := range parts {
+		if len(part) == 0 || len(part) > 8 {
+			return false
+		}
+		for _, ch := range part {
+			if i == 0 {
+				if !((ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z')) {
+					return false
+				}
+			} else {
+				if !((ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z') || (ch >= '0' && ch <= '9')) {
+					return false
+				}
+			}
+		}
+	}
+	return true
 }
 
 func isLetter(ch byte) bool {

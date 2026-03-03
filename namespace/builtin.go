@@ -12,13 +12,13 @@ var RDF = struct {
 	NS Namespace
 
 	// Properties
-	Direction, First, Language, Object, Predicate, Rest, Subject, Type, Value term.URIRef
+	Direction, First, Language, Object, Predicate, Reifies, Rest, Subject, Type, Value term.URIRef
 
 	// Classes
 	Alt, Bag, CompoundLiteral, List, Property, Seq, Statement term.URIRef
 
 	// Datatypes
-	HTML, JSON, PlainLiteral, XMLLiteral, LangString term.URIRef
+	DirLangString, HTML, JSON, PlainLiteral, XMLLiteral, LangString term.URIRef
 
 	// Special
 	Nil term.URIRef
@@ -30,6 +30,7 @@ var RDF = struct {
 	Language:  term.NewURIRefUnsafe(term.RDFNamespace + "language"),
 	Object:    term.NewURIRefUnsafe(term.RDFNamespace + "object"),
 	Predicate: term.NewURIRefUnsafe(term.RDFNamespace + "predicate"),
+	Reifies:   term.RDFReifies,
 	Rest:      term.NewURIRefUnsafe(term.RDFNamespace + "rest"),
 	Subject:   term.NewURIRefUnsafe(term.RDFNamespace + "subject"),
 	Type:      term.NewURIRefUnsafe(term.RDFNamespace + "type"),
@@ -43,7 +44,8 @@ var RDF = struct {
 	Seq:             term.NewURIRefUnsafe(term.RDFNamespace + "Seq"),
 	Statement:       term.NewURIRefUnsafe(term.RDFNamespace + "Statement"),
 
-	HTML:         term.NewURIRefUnsafe(term.RDFNamespace + "HTML"),
+	DirLangString: term.RDFDirLangString,
+	HTML:          term.NewURIRefUnsafe(term.RDFNamespace + "HTML"),
 	JSON:         term.NewURIRefUnsafe(term.RDFNamespace + "JSON"),
 	PlainLiteral: term.NewURIRefUnsafe(term.RDFNamespace + "PlainLiteral"),
 	XMLLiteral:   term.NewURIRefUnsafe(term.RDFNamespace + "XMLLiteral"),

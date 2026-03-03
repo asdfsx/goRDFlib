@@ -15,10 +15,12 @@ func termTypeOrder(t Term) int {
 		return 1
 	case Literal:
 		return 2
-	case Variable:
+	case TripleTerm:
 		return 3
-	default:
+	case Variable:
 		return 4
+	default:
+		return 5
 	}
 }
 

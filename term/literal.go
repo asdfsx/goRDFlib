@@ -7,10 +7,12 @@ import (
 )
 
 // Literal represents an RDF literal with a lexical form, optional language tag, and datatype.
+// RDF 1.2 adds an optional base direction (ltr/rtl) for directional language-tagged strings.
 // Ported from: rdflib.term.Literal
 type Literal struct {
 	lexical  string
 	lang     string
+	dir      string // "" | "ltr" | "rtl" (RDF 1.2 base direction)
 	datatype URIRef
 }
 
@@ -30,6 +32,16 @@ func WithLang(lang string) LiteralOption {
 			return // invalid tag, skip
 		}
 		l.lang = strings.ToLower(lang)
+	}
+}
+
+// WithDir sets the base direction for directional language-tagged strings (RDF 1.2).
+// Valid values are "ltr" and "rtl". Other values are silently ignored.
+func WithDir(dir string) LiteralOption {
+	return func(l *Literal) {
+		if dir == "ltr" || dir == "rtl" {
+			l.dir = dir
+		}
 	}
 }
 
@@ -54,9 +66,13 @@ func NewLiteral(value any, opts ...LiteralOption) Literal {
 		opt(&lit)
 	}
 
-	// Language-tagged literals get rdf:langString datatype per RDF 1.1.
+	// Language-tagged literals: dir requires lang.
 	if lit.lang != "" {
-		lit.datatype = RDFLangString
+		if lit.dir != "" {
+			lit.datatype = RDFDirLangString
+		} else {
+			lit.datatype = RDFLangString
+		}
 	}
 
 	return lit
@@ -67,6 +83,9 @@ func (l Literal) Lexical() string { return l.lexical }
 
 // Language returns the language tag (empty string if none).
 func (l Literal) Language() string { return l.lang }
+
+// Dir returns the base direction ("ltr", "rtl", or "" if none). RDF 1.2.
+func (l Literal) Dir() string { return l.dir }
 
 // Datatype returns the datatype URIRef.
 func (l Literal) Datatype() URIRef { return l.datatype }
@@ -102,10 +121,10 @@ func (l Literal) String() string {
 	return l.lexical
 }
 
-// Equal returns true if other is a Literal with identical lexical form, language, and datatype.
+// Equal returns true if other is a Literal with identical lexical form, language, direction, and datatype.
 func (l Literal) Equal(other Term) bool {
 	if o, ok := other.(Literal); ok {
-		return l == o
+		return l.lexical == o.lexical && l.lang == o.lang && l.dir == o.dir && l.datatype == o.datatype
 	}
 	return false
 }
@@ -147,6 +166,9 @@ func (l Literal) N3(ns ...NamespaceManager) string {
 	}
 
 	if l.lang != "" {
+		if l.dir != "" {
+			return quoted + "@" + l.lang + "--" + l.dir
+		}
 		return quoted + "@" + l.lang
 	}
 	if l.datatype != (URIRef{}) && l.datatype != XSDString {
