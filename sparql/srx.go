@@ -141,9 +141,9 @@ func parseSRXTriple(t *srxTriple) rdflibgo.Term {
 	s := parseSRXTripleComponent(t.Subject)
 	p := parseSRXTripleComponent(t.Predicate)
 	o := parseSRXTripleComponent(t.Object)
-	subj, _ := s.(rdflibgo.Subject)
-	pred, _ := p.(rdflibgo.URIRef)
-	if subj == nil || o == nil {
+	subj, okS := s.(rdflibgo.Subject)
+	pred, okP := p.(rdflibgo.URIRef)
+	if !okS || !okP || o == nil {
 		return nil
 	}
 	return rdflibgo.NewTripleTerm(subj, pred, o)
@@ -232,9 +232,9 @@ func parseSRJValue(v srjValue) rdflibgo.Term {
 		s := parseSRJValue(tv.Subject)
 		p := parseSRJValue(tv.Predicate)
 		o := parseSRJValue(tv.Object)
-		subj, _ := s.(rdflibgo.Subject)
-		pred, _ := p.(rdflibgo.URIRef)
-		if subj == nil || o == nil {
+		subj, okS := s.(rdflibgo.Subject)
+		pred, okP := p.(rdflibgo.URIRef)
+		if !okS || !okP || o == nil {
 			return nil
 		}
 		return rdflibgo.NewTripleTerm(subj, pred, o)

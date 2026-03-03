@@ -325,7 +325,7 @@ func validateTripleTermString(s, position string) error {
 		return nil
 	}
 	inner := s[4 : len(s)-4]
-	parts := splitTripleTermPartsParser(inner)
+	parts := splitTripleTermParts(inner)
 	if len(parts) != 3 {
 		return nil
 	}

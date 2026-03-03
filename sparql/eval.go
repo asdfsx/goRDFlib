@@ -992,6 +992,9 @@ func splitTripleTermParts(s string) []string {
 
 // tripleTermHasVariables checks if a triple term pattern string contains variables.
 func tripleTermHasVariables(s string) bool {
+	if len(s) < 8 {
+		return false
+	}
 	inner := s[4 : len(s)-4]
 	parts := splitTripleTermParts(inner)
 	for _, p := range parts {

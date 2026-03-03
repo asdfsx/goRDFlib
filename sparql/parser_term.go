@@ -16,7 +16,7 @@ func (p *sparqlParser) resolveTermValue(s string) rdflibgo.Term {
 	// Triple term: <<( s p o )>>
 	if strings.HasPrefix(s, "<<( ") && strings.HasSuffix(s, " )>>") {
 		inner := s[4 : len(s)-4]
-		parts := splitTripleTermPartsParser(inner)
+		parts := splitTripleTermParts(inner)
 		if len(parts) == 3 {
 			st := p.resolveTermValue(parts[0])
 			pt := p.resolveTermValue(parts[1])
@@ -317,44 +317,6 @@ func isNameChar(r rune) bool {
 	return unicode.IsLetter(r) || unicode.IsDigit(r) || r == '_'
 }
 
-// splitTripleTermPartsParser splits the inner part of a triple term into 3 components.
-func splitTripleTermPartsParser(s string) []string {
-	var parts []string
-	depth := 0
-	start := 0
-	for i := 0; i < len(s); i++ {
-		if s[i] == '<' && i+1 < len(s) && s[i+1] == '<' {
-			depth++
-			i++
-		} else if s[i] == '>' && i+1 < len(s) && s[i+1] == '>' {
-			depth--
-			i++
-		} else if s[i] == '"' || s[i] == '\'' {
-			q := s[i]
-			i++
-			for i < len(s) && s[i] != q {
-				if s[i] == '\\' {
-					i++
-				}
-				i++
-			}
-		} else if s[i] == ' ' && depth == 0 {
-			part := strings.TrimSpace(s[start:i])
-			if part != "" {
-				parts = append(parts, part)
-			}
-			start = i + 1
-		}
-	}
-	if start < len(s) {
-		part := strings.TrimSpace(s[start:])
-		if part != "" {
-			parts = append(parts, part)
-		}
-	}
-	return parts
-}
-
 // parseVersion parses a VERSION directive. Accepts single-quoted or double-quoted strings.
 // Triple-quoted strings are rejected.
 func (p *sparqlParser) parseVersion() error {
@@ -381,11 +343,11 @@ func (p *sparqlParser) parseVersion() error {
 	return nil
 }
 
-// preprocessCodepointEscapes processes \uHHHH and \UHHHHHHHH escapes everywhere in the input.
-// Per SPARQL 1.2 spec, codepoint escapes are processed at the lexical level before any other processing.
-// Returns the input with escapes replaced by the actual Unicode characters.
+// preprocessCodepointEscapes processes \uHHHH and \UHHHHHHHH codepoint escapes in SPARQL input.
+// Per SPARQL 1.2, codepoint escapes are processed at the character level before any other
+// tokenization, including inside string literals.
 func preprocessCodepointEscapes(input string) string {
-	if !strings.ContainsRune(input, '\\') {
+	if strings.IndexByte(input, '\\') < 0 {
 		return input
 	}
 
@@ -395,13 +357,12 @@ func preprocessCodepointEscapes(input string) string {
 	for i := 0; i < len(input); i++ {
 		ch := input[i]
 
-		// Process \u and \U escapes everywhere
 		if ch == '\\' && i+1 < len(input) {
 			if input[i+1] == 'u' && i+5 < len(input) {
 				hex := input[i+2 : i+6]
 				if cp, err := strconv.ParseUint(hex, 16, 32); err == nil {
-					// Don't convert surrogates — they remain as-is for later validation
 					if cp >= 0xD800 && cp <= 0xDFFF {
+						// Preserve surrogates for later validation
 						sb.WriteString(input[i : i+6])
 						i += 5
 						continue

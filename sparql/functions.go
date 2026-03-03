@@ -200,24 +200,19 @@ func evalFunc(name string, args []Expr, bindings map[string]rdflibgo.Term, prefi
 			opts = append(opts, rdflibgo.WithLang(*commonLang))
 			opts = append(opts, rdflibgo.WithDir(*commonDir))
 		} else if commonLang != nil && *commonLang != "" && (commonDir == nil || *commonDir == "") {
-			// Check if any had dir — if some had dir and some didn't, no lang
-			allHaveDir := true
+			// Check if any had dir — if some had dir and some didn't, drop lang
 			noneHaveDir := true
 			for _, v := range vals {
 				if l, ok := v.(rdflibgo.Literal); ok {
 					if l.Dir() != "" {
 						noneHaveDir = false
-					} else {
-						allHaveDir = false
+						break
 					}
 				}
 			}
 			if noneHaveDir {
-				// Pure lang, no dir — preserve lang
 				opts = append(opts, rdflibgo.WithLang(*commonLang))
 			}
-			// If mixed dir/no-dir, drop everything (no opts)
-			_ = allHaveDir
 		}
 		return rdflibgo.NewLiteral(sb.String(), opts...)
 	case "REGEX":
@@ -631,7 +626,7 @@ func evalFunc(name string, args []Expr, bindings map[string]rdflibgo.Term, prefi
 		return rdflibgo.NewLiteral(false)
 	case "STRLANGDIR":
 		vals := evalArgs()
-		if len(vals) == 3 && vals[0] != nil {
+		if len(vals) == 3 && vals[0] != nil && vals[1] != nil && vals[2] != nil {
 			// STRLANGDIR requires a simple literal (like STRLANG)
 			l, ok := vals[0].(rdflibgo.Literal)
 			if !ok {
