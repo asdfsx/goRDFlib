@@ -750,7 +750,7 @@ func castXSD(name string, val rdflibgo.Term) rdflibgo.Term {
 		if isNumericDatatype(dt) {
 			// From numeric: truncate to integer
 			if f, err := strconv.ParseFloat(s, 64); err == nil {
-				return rdflibgo.NewLiteral(int(f), rdflibgo.WithDatatype(rdflibgo.XSDInteger))
+				return rdflibgo.NewLiteral(int64(f), rdflibgo.WithDatatype(rdflibgo.XSDInteger))
 			}
 		}
 		// From string/plain: must be a valid integer lexical form

@@ -3,8 +3,9 @@ package sparql
 import (
 	"encoding/json"
 	"encoding/xml"
-	"io"
 	"fmt"
+	"io"
+	"slices"
 	"strings"
 
 	rdflibgo "github.com/tggo/goRDFlib"
@@ -52,10 +53,10 @@ func ParseSRX(r io.Reader) (*Result, error) {
 }
 
 type srxDocument struct {
-	XMLName xml.Name    `xml:"sparql"`
-	Head    srxHead     `xml:"head"`
-	Results srxResults  `xml:"results"`
-	Boolean *bool       `xml:"boolean"`
+	XMLName xml.Name   `xml:"sparql"`
+	Head    srxHead    `xml:"head"`
+	Results srxResults `xml:"results"`
+	Boolean *bool      `xml:"boolean"`
 }
 
 type srxHead struct {
@@ -222,7 +223,7 @@ func bindingKeySimple(row map[string]rdflibgo.Term) string {
 		}
 		parts = append(parts, k+"="+val)
 	}
-	sortStrings(parts)
+	slices.Sort(parts)
 	return strings.Join(parts, "|")
 }
 
@@ -241,61 +242,6 @@ func bindingKeyNoBnodes(row map[string]rdflibgo.Term) string {
 		}
 		parts = append(parts, k+"="+val)
 	}
-	sortStrings(parts)
+	slices.Sort(parts)
 	return strings.Join(parts, "|")
-}
-
-func bindingKeyNorm(row map[string]rdflibgo.Term, bnodeMap map[string]string) string {
-	var parts []string
-	for k, v := range row {
-		val := ""
-		if v != nil {
-			if b, ok := v.(rdflibgo.BNode); ok {
-				label := b.N3()
-				if norm, exists := bnodeMap[label]; exists {
-					val = norm
-				} else {
-					norm := fmt.Sprintf("_:b%d", len(bnodeMap))
-					bnodeMap[label] = norm
-					val = norm
-				}
-			} else if l, ok := v.(rdflibgo.Literal); ok && isNumericDatatype(l.Datatype()) {
-				f := toFloat64(v)
-				val = fmt.Sprintf("NUM:%g", f)
-			} else {
-				val = v.N3()
-			}
-		}
-		parts = append(parts, k+"="+val)
-	}
-	sortStrings(parts)
-	return strings.Join(parts, "|")
-}
-
-func bindingKey(row map[string]rdflibgo.Term) string {
-	var parts []string
-	for k, v := range row {
-		val := ""
-		if v != nil {
-			// Normalize numeric values for comparison
-			if l, ok := v.(rdflibgo.Literal); ok && isNumericDatatype(l.Datatype()) {
-				f := toFloat64(v)
-				// Use a canonical numeric form regardless of datatype
-				val = fmt.Sprintf("NUM:%g", f)
-			} else {
-				val = v.N3()
-			}
-		}
-		parts = append(parts, k+"="+val)
-	}
-	sortStrings(parts)
-	return strings.Join(parts, "|")
-}
-
-func sortStrings(s []string) {
-	for i := 1; i < len(s); i++ {
-		for j := i; j > 0 && s[j] < s[j-1]; j-- {
-			s[j], s[j-1] = s[j-1], s[j]
-		}
-	}
 }

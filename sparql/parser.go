@@ -23,9 +23,9 @@ func Parse(input string) (*ParsedQuery, error) {
 }
 
 type sparqlParser struct {
-	input    string
-	pos      int
-	prefixes map[string]string
+	input      string
+	pos        int
+	prefixes   map[string]string
 	bnodeCount int
 }
 
@@ -43,7 +43,7 @@ func (p *sparqlParser) parse() (*ParsedQuery, error) {
 			p.skipWS()
 			prefix := p.readUntil(':')
 			// Validate prefix: must start with letter or be empty
-			if prefix != "" && len(prefix) > 0 && !(prefix[0] >= 'a' && prefix[0] <= 'z' || prefix[0] >= 'A' && prefix[0] <= 'Z') {
+			if prefix != "" && !((prefix[0] >= 'a' && prefix[0] <= 'z') || (prefix[0] >= 'A' && prefix[0] <= 'Z')) {
 				return nil, p.errorf("invalid prefix name: %q", prefix)
 			}
 			p.pos++ // skip ':'

@@ -8,16 +8,16 @@ import (
 // ParsedQuery is the parsed representation of a SPARQL query.
 // Ported from: rdflib.plugins.sparql.parserutils.CompValue
 type ParsedQuery struct {
-	Type         string // "SELECT", "ASK", "CONSTRUCT"
-	Distinct     bool
-	Variables    []string // projection vars (nil = *)
-	ProjectExprs []ProjectExpr
-	Where        Pattern
-	OrderBy      []OrderExpr
-	Limit        int // -1 = no limit
-	Offset       int
-	Prefixes     map[string]string // prefix → namespace
-	Construct    []TripleTemplate  // CONSTRUCT template
+	Type           string // "SELECT", "ASK", "CONSTRUCT"
+	Distinct       bool
+	Variables      []string // projection vars (nil = *)
+	ProjectExprs   []ProjectExpr
+	Where          Pattern
+	OrderBy        []OrderExpr
+	Limit          int // -1 = no limit
+	Offset         int
+	Prefixes       map[string]string // prefix → namespace
+	Construct      []TripleTemplate  // CONSTRUCT template
 	GroupBy        []Expr
 	GroupByAliases []string // parallel to GroupBy: variable name if (expr AS ?var), else ""
 	Having         Expr

@@ -12,27 +12,14 @@ import (
 )
 
 // EvalQuery evaluates a parsed SPARQL query against a graph.
-// namedGraphs stores named graph data for GRAPH clause evaluation.
-// This is set per-query by EvalQuery and accessed during pattern evaluation.
-var activeNamedGraphs map[string]*rdflibgo.Graph
-
 func EvalQuery(g *rdflibgo.Graph, q *ParsedQuery, initBindings map[string]rdflibgo.Term) (*Result, error) {
-	// Store base URI in prefixes for function access
+	if q.Prefixes == nil {
+		q.Prefixes = make(map[string]string)
+	}
 	if q.BaseURI != "" {
-		if q.Prefixes == nil {
-			q.Prefixes = make(map[string]string)
-		}
 		q.Prefixes["__base__"] = q.BaseURI
 	}
-	// Set named graphs for GRAPH clause
-	if q.NamedGraphs != nil {
-		activeNamedGraphs = q.NamedGraphs
-	}
-	// Store base URI for relative IRI resolution
-	if q.BaseURI != "" && q.Prefixes != nil {
-		q.Prefixes["__base__"] = q.BaseURI
-	}
-	solutions := evalPattern(g, q.Where, q.Prefixes)
+	solutions := evalPattern(g, q.Where, q.Prefixes, q.NamedGraphs)
 
 	if initBindings != nil {
 		solutions = filterByBindings(solutions, initBindings)
@@ -357,7 +344,7 @@ func evalAggregate(fe *FuncExpr, group []map[string]rdflibgo.Term, prefixes map[
 			}
 		}
 		if allInt {
-			return rdflibgo.NewLiteral(int(sum), rdflibgo.WithDatatype(rdflibgo.XSDInteger))
+			return rdflibgo.NewLiteral(int64(sum), rdflibgo.WithDatatype(rdflibgo.XSDInteger))
 		}
 		if hasDecimal {
 			return rdflibgo.NewLiteral(formatDecimal(sum), rdflibgo.WithDatatype(rdflibgo.XSDDecimal))
@@ -484,7 +471,7 @@ func resolveTermRef(s string, prefixes map[string]string) rdflibgo.Term {
 
 // --- Pattern evaluation ---
 
-func evalPattern(g *rdflibgo.Graph, pattern Pattern, prefixes map[string]string) []map[string]rdflibgo.Term {
+func evalPattern(g *rdflibgo.Graph, pattern Pattern, prefixes map[string]string, namedGraphs map[string]*rdflibgo.Graph) []map[string]rdflibgo.Term {
 	if pattern == nil {
 		return []map[string]rdflibgo.Term{{}}
 	}
@@ -494,10 +481,10 @@ func evalPattern(g *rdflibgo.Graph, pattern Pattern, prefixes map[string]string)
 		return evalBGP(g, p.Triples, map[string]rdflibgo.Term{}, prefixes)
 
 	case *JoinPattern:
-		left := evalPattern(g, p.Left, prefixes)
+		left := evalPattern(g, p.Left, prefixes, namedGraphs)
 		var result []map[string]rdflibgo.Term
 		for _, lb := range left {
-			right := evalPatternWithBindings(g, p.Right, lb, prefixes)
+			right := evalPatternWithBindings(g, p.Right, lb, prefixes, namedGraphs)
 			for _, rb := range right {
 				result = append(result, mergeBindings(lb, rb))
 			}
@@ -505,10 +492,10 @@ func evalPattern(g *rdflibgo.Graph, pattern Pattern, prefixes map[string]string)
 		return result
 
 	case *OptionalPattern:
-		main := evalPattern(g, p.Main, prefixes)
+		main := evalPattern(g, p.Main, prefixes, namedGraphs)
 		var result []map[string]rdflibgo.Term
 		for _, mb := range main {
-			opt := evalPatternWithBindings(g, p.Optional, mb, prefixes)
+			opt := evalPatternWithBindings(g, p.Optional, mb, prefixes, namedGraphs)
 			if len(opt) > 0 {
 				for _, ob := range opt {
 					result = append(result, mergeBindings(mb, ob))
@@ -520,17 +507,17 @@ func evalPattern(g *rdflibgo.Graph, pattern Pattern, prefixes map[string]string)
 		return result
 
 	case *UnionPattern:
-		left := evalPattern(g, p.Left, prefixes)
-		right := evalPattern(g, p.Right, prefixes)
+		left := evalPattern(g, p.Left, prefixes, namedGraphs)
+		right := evalPattern(g, p.Right, prefixes, namedGraphs)
 		return append(left, right...)
 
 	case *FilterPattern:
-		inner := evalPattern(g, p.Pattern, prefixes)
+		inner := evalPattern(g, p.Pattern, prefixes, namedGraphs)
 		var result []map[string]rdflibgo.Term
 		for _, b := range inner {
 			var val rdflibgo.Term
 			if containsExists(p.Expr) {
-				val = evalExprWithGraph(p.Expr, b, prefixes, g)
+				val = evalExprWithGraph(p.Expr, b, prefixes, g, namedGraphs)
 			} else {
 				val = evalExpr(p.Expr, b, prefixes)
 			}
@@ -541,7 +528,7 @@ func evalPattern(g *rdflibgo.Graph, pattern Pattern, prefixes map[string]string)
 		return result
 
 	case *BindPattern:
-		inner := evalPattern(g, p.Pattern, prefixes)
+		inner := evalPattern(g, p.Pattern, prefixes, namedGraphs)
 		var result []map[string]rdflibgo.Term
 		for _, b := range inner {
 			val := evalExpr(p.Expr, b, prefixes)
@@ -573,8 +560,8 @@ func evalPattern(g *rdflibgo.Graph, pattern Pattern, prefixes map[string]string)
 		return result
 
 	case *MinusPattern:
-		left := evalPattern(g, p.Left, prefixes)
-		right := evalPattern(g, p.Right, prefixes)
+		left := evalPattern(g, p.Left, prefixes, namedGraphs)
+		right := evalPattern(g, p.Right, prefixes, namedGraphs)
 		var result []map[string]rdflibgo.Term
 		for _, lb := range left {
 			excluded := false
@@ -591,9 +578,10 @@ func evalPattern(g *rdflibgo.Graph, pattern Pattern, prefixes map[string]string)
 		return result
 
 	case *GraphPattern:
-		return evalGraphPattern(g, p, prefixes)
+		return evalGraphPattern(g, p, prefixes, namedGraphs)
 
 	case *SubqueryPattern:
+		p.Query.NamedGraphs = namedGraphs
 		subResult, err := EvalQuery(g, p.Query, nil)
 		if err != nil {
 			return nil
@@ -607,10 +595,10 @@ func evalPattern(g *rdflibgo.Graph, pattern Pattern, prefixes map[string]string)
 	return []map[string]rdflibgo.Term{{}}
 }
 
-func evalGraphPattern(g *rdflibgo.Graph, gp *GraphPattern, prefixes map[string]string) []map[string]rdflibgo.Term {
-	if activeNamedGraphs == nil || len(activeNamedGraphs) == 0 {
+func evalGraphPattern(g *rdflibgo.Graph, gp *GraphPattern, prefixes map[string]string, namedGraphs map[string]*rdflibgo.Graph) []map[string]rdflibgo.Term {
+	if len(namedGraphs) == 0 {
 		// No named graphs available — evaluate against default graph
-		return evalPattern(g, gp.Pattern, prefixes)
+		return evalPattern(g, gp.Pattern, prefixes, namedGraphs)
 	}
 
 	graphName := gp.Name // e.g., "?g" or "<http://...>"
@@ -620,11 +608,11 @@ func evalGraphPattern(g *rdflibgo.Graph, gp *GraphPattern, prefixes map[string]s
 		// GRAPH ?g { ... } — iterate over all named graphs
 		varName := graphName[1:]
 		var results []map[string]rdflibgo.Term
-		for name, namedG := range activeNamedGraphs {
+		for name, namedG := range namedGraphs {
 			graphURI := rdflibgo.NewURIRefUnsafe(name)
 			// Push graph binding into inner pattern evaluation
 			initBindings := map[string]rdflibgo.Term{varName: graphURI}
-			inner := evalPatternWithBindings(namedG, gp.Pattern, initBindings, prefixes)
+			inner := evalPatternWithBindings(namedG, gp.Pattern, initBindings, prefixes, namedGraphs)
 			for _, b := range inner {
 				nb := copyBindings(b)
 				nb[varName] = graphURI
@@ -646,13 +634,13 @@ func evalGraphPattern(g *rdflibgo.Graph, gp *GraphPattern, prefixes map[string]s
 		graphIRI = resolved.String()
 	}
 
-	if namedG, ok := activeNamedGraphs[graphIRI]; ok {
-		return evalPattern(namedG, gp.Pattern, prefixes)
+	if namedG, ok := namedGraphs[graphIRI]; ok {
+		return evalPattern(namedG, gp.Pattern, prefixes, namedGraphs)
 	}
 	// Try matching by filename suffix (for relative URIs like <ng-01.ttl>)
-	for name, namedG := range activeNamedGraphs {
+	for name, namedG := range namedGraphs {
 		if strings.HasSuffix(name, "/"+graphIRI) || strings.HasSuffix(name, graphIRI) {
-			return evalPattern(namedG, gp.Pattern, prefixes)
+			return evalPattern(namedG, gp.Pattern, prefixes, namedGraphs)
 		}
 	}
 	return nil
@@ -671,12 +659,12 @@ func minusCompatible(a, b map[string]rdflibgo.Term) bool {
 	return shared
 }
 
-func evalPatternWithBindings(g *rdflibgo.Graph, pattern Pattern, bindings map[string]rdflibgo.Term, prefixes map[string]string) []map[string]rdflibgo.Term {
+func evalPatternWithBindings(g *rdflibgo.Graph, pattern Pattern, bindings map[string]rdflibgo.Term, prefixes map[string]string, namedGraphs map[string]*rdflibgo.Graph) []map[string]rdflibgo.Term {
 	switch p := pattern.(type) {
 	case *BGP:
 		return evalBGP(g, p.Triples, bindings, prefixes)
 	default:
-		results := evalPattern(g, pattern, prefixes)
+		results := evalPattern(g, pattern, prefixes, namedGraphs)
 		var compatible []map[string]rdflibgo.Term
 		for _, r := range results {
 			if isCompatible(bindings, r) {
@@ -875,24 +863,24 @@ func evalExpr(expr Expr, bindings map[string]rdflibgo.Term, prefixes map[string]
 	return nil
 }
 
-func evalExprWithGraph(expr Expr, bindings map[string]rdflibgo.Term, prefixes map[string]string, g *rdflibgo.Graph) rdflibgo.Term {
+func evalExprWithGraph(expr Expr, bindings map[string]rdflibgo.Term, prefixes map[string]string, g *rdflibgo.Graph, namedGraphs map[string]*rdflibgo.Graph) rdflibgo.Term {
 	if expr == nil {
 		return nil
 	}
 	switch e := expr.(type) {
 	case *ExistsExpr:
-		results := evalPatternWithBindings(g, e.Pattern, bindings, prefixes)
+		results := evalPatternWithBindings(g, e.Pattern, bindings, prefixes, namedGraphs)
 		exists := len(results) > 0
 		if e.Not {
 			exists = !exists
 		}
 		return rdflibgo.NewLiteral(exists)
 	case *BinaryExpr:
-		left := evalExprWithGraph(e.Left, bindings, prefixes, g)
-		right := evalExprWithGraph(e.Right, bindings, prefixes, g)
+		left := evalExprWithGraph(e.Left, bindings, prefixes, g, namedGraphs)
+		right := evalExprWithGraph(e.Right, bindings, prefixes, g, namedGraphs)
 		return evalBinaryOp(e.Op, left, right)
 	case *UnaryExpr:
-		arg := evalExprWithGraph(e.Arg, bindings, prefixes, g)
+		arg := evalExprWithGraph(e.Arg, bindings, prefixes, g, namedGraphs)
 		return evalUnaryOp(e.Op, arg)
 	default:
 		return evalExpr(expr, bindings, prefixes)
@@ -973,7 +961,7 @@ func evalBinaryOp(op string, left, right rdflibgo.Term) rdflibgo.Term {
 			result = lf / rf
 		}
 		if isIntegral(left) && isIntegral(right) && op != "/" {
-			return rdflibgo.NewLiteral(int(result))
+			return rdflibgo.NewLiteral(int64(result))
 		}
 		if isDecimal(left) || isDecimal(right) {
 			return rdflibgo.NewLiteral(formatDecimal(result), rdflibgo.WithDatatype(rdflibgo.XSDDecimal))
@@ -990,7 +978,7 @@ func evalUnaryOp(op string, arg rdflibgo.Term) rdflibgo.Term {
 	case "-":
 		f := toFloat64(arg)
 		if isIntegral(arg) {
-			return rdflibgo.NewLiteral(int(-f))
+			return rdflibgo.NewLiteral(int64(-f))
 		}
 		return rdflibgo.NewLiteral(-f)
 	}

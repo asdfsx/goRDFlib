@@ -28,9 +28,9 @@ func TestW3C(t *testing.T) {
 
 	// Categorize by test type
 	const (
-		mfQueryEval    = "http://www.w3.org/2001/sw/DataAccess/tests/test-manifest#QueryEvaluationTest"
-		mfPosSyntax11  = "http://www.w3.org/2001/sw/DataAccess/tests/test-manifest#PositiveSyntaxTest11"
-		mfNegSyntax11  = "http://www.w3.org/2001/sw/DataAccess/tests/test-manifest#NegativeSyntaxTest11"
+		mfQueryEval   = "http://www.w3.org/2001/sw/DataAccess/tests/test-manifest#QueryEvaluationTest"
+		mfPosSyntax11 = "http://www.w3.org/2001/sw/DataAccess/tests/test-manifest#PositiveSyntaxTest11"
+		mfNegSyntax11 = "http://www.w3.org/2001/sw/DataAccess/tests/test-manifest#NegativeSyntaxTest11"
 	)
 
 	for _, entry := range manifest.Entries {
