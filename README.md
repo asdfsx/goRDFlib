@@ -5,10 +5,15 @@
 [![Go Report Card](https://goreportcard.com/badge/github.com/tggo/goRDFlib)](https://goreportcard.com/report/github.com/tggo/goRDFlib)
 ![W3C SPARQL Query](https://img.shields.io/badge/W3C_SPARQL_1.1_Query-329%2F329-brightgreen)
 ![W3C SPARQL Update](https://img.shields.io/badge/W3C_SPARQL_1.1_Update-158%2F158-brightgreen)
+![W3C SPARQL 1.2](https://img.shields.io/badge/W3C_SPARQL_1.2-234%2F234-brightgreen)
 ![W3C Turtle](https://img.shields.io/badge/W3C_Turtle-313%2F313-brightgreen)
+![W3C Turtle 1.2](https://img.shields.io/badge/W3C_Turtle_1.2-97%2F97-brightgreen)
+![W3C N-Triples 1.2](https://img.shields.io/badge/W3C_N--Triples_1.2-29%2F29-brightgreen)
+![W3C N-Quads 1.2](https://img.shields.io/badge/W3C_N--Quads_1.2-28%2F28-brightgreen)
 ![W3C N-Triples](https://img.shields.io/badge/W3C_N--Triples-70%2F70-brightgreen)
 ![W3C N-Quads](https://img.shields.io/badge/W3C_N--Quads-87%2F87-brightgreen)
 ![W3C RDF/XML](https://img.shields.io/badge/W3C_RDF%2FXML-166%2F166-brightgreen)
+![W3C RDF/XML 1.2](https://img.shields.io/badge/W3C_RDF%2FXML_1.2-32%2F32-brightgreen)
 ![W3C SHACL](https://img.shields.io/badge/W3C_SHACL-98%2F98-brightgreen)
 
 A Go port of the Python [RDFLib](https://github.com/RDFLib/rdflib) library for working with RDF (Resource Description Framework) data.
@@ -28,6 +33,8 @@ goRDFlib is a Go implementation of the core RDFLib functionality, ported from th
 - **Literal** -- Typed literals with language tags, XSD datatype support, and type-aware comparison
   - Native Go type mapping: string, int, int64, float32, float64, bool
   - XSD datatypes: string, integer, int, long, float, double, decimal, boolean, dateTime, date, time, anyURI
+  - Directional language tags (`@en--ltr`) per RDF 1.2
+- **TripleTerm** -- RDF 1.2 triple terms (triple-as-term) for reification
 - **Variable** -- SPARQL query variables
 - **Triple / Quad** -- Triple and quad representations with pattern matching
 
@@ -53,11 +60,13 @@ All formats include both parser and serializer:
 
 | Format | Parser | Serializer | W3C Tests |
 |--------|:------:|:----------:|-----------|
-| Turtle | yes | yes | 313/313 (100%) |
-| N-Triples | yes | yes | 70/70 (100%) |
-| N-Quads | yes | yes | 87/87 (100%) |
-| RDF/XML | yes | yes | 166/166 (100%) |
+| Turtle 1.2 | yes | yes | 313/313 + 97/97 RDF 1.2 (100%) |
+| N-Triples 1.2 | yes | yes | 70/70 + 29/29 RDF 1.2 (100%) |
+| N-Quads 1.2 | yes | yes | 87/87 + 28/28 RDF 1.2 (100%) |
+| RDF/XML 1.2 | yes | yes | 166/166 + 32/32 RDF 1.2 (100%) |
 | JSON-LD | yes | yes | via [piprate/json-gold](https://github.com/piprate/json-gold) |
+
+All parsers support RDF 1.2 features: triple terms (`<<( s p o )>>`), reified triples, annotations (`{| p o |}`), directional language tags, and `rdf:parseType="Triple"` (RDF/XML).
 
 ### Namespace System
 
@@ -110,6 +119,18 @@ Custom namespaces with open and closed (restricted) modes.
 | Comparison | LANGMATCHES, SAMETERM |
 | Random/UUID | RAND, UUID, STRUUID |
 | XSD casts | xsd:boolean, xsd:integer, xsd:float, xsd:double, xsd:decimal, xsd:string |
+
+### SPARQL 1.2 Extensions
+
+Full SPARQL 1.2 support -- **234/234 W3C tests pass (100%)**:
+
+- **Triple term patterns** -- `<<( ?s ?p ?o )>>` in graph patterns
+- **Reified triples** -- `<< ?s ?p ?o >>` with `rdf:reifies` desugaring
+- **Annotation syntax** -- `?s ?p ?o {| :source :web |}`
+- **VERSION directive** -- `VERSION "1.2"`
+- **Codepoint escapes** -- `\uHHHH` / `\UHHHHHHHH` in prefixed names
+- **Directional language tags** -- `"text"@en--ltr`
+- **New functions** -- `TRIPLE()`, `SUBJECT()`, `PREDICATE()`, `OBJECT()`, `isTriple()`, `LANGDIR()`, `hasLANG()`, `hasLANGDIR()`, `STRLANGDIR()`
 
 ### SPARQL 1.1 Update Engine
 
@@ -294,10 +315,15 @@ All parsers, SPARQL engine, and SHACL validator are validated against official W
 |-----------|-------|------|--------|
 | SPARQL 1.1 Query | 329 | 329 | 100% |
 | SPARQL 1.1 Update | 158 | 158 | 100% |
-| Turtle | 313 | 313 | 100% |
+| SPARQL 1.2 | 234 | 234 | 100% |
+| Turtle 1.1 | 313 | 313 | 100% |
+| Turtle 1.2 | 97 | 97 | 100% |
+| N-Triples 1.2 | 29 | 29 | 100% |
+| N-Quads 1.2 | 28 | 28 | 100% |
 | N-Triples | 70 | 70 | 100% |
 | N-Quads | 87 | 87 | 100% |
 | RDF/XML | 166 | 166 | 100% |
+| RDF/XML 1.2 | 32 | 32 | 100% |
 | SHACL Core | 98 | 98 | 100% |
 
 ```bash
