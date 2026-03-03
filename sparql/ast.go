@@ -44,7 +44,7 @@ type OrderExpr struct {
 
 // Pattern represents a WHERE clause pattern.
 type Pattern interface {
-	patternType() string
+	isPattern()
 }
 
 // BGP is a Basic Graph Pattern.
@@ -52,7 +52,7 @@ type BGP struct {
 	Triples []Triple
 }
 
-func (b *BGP) patternType() string { return "BGP" }
+func (*BGP) isPattern() {}
 
 // Triple is a triple pattern with possible variables.
 type Triple struct {
@@ -65,21 +65,21 @@ type JoinPattern struct {
 	Left, Right Pattern
 }
 
-func (j *JoinPattern) patternType() string { return "Join" }
+func (*JoinPattern) isPattern() {}
 
 // OptionalPattern is a LEFT JOIN.
 type OptionalPattern struct {
 	Main, Optional Pattern
 }
 
-func (o *OptionalPattern) patternType() string { return "Optional" }
+func (*OptionalPattern) isPattern() {}
 
 // UnionPattern is a UNION of two patterns.
 type UnionPattern struct {
 	Left, Right Pattern
 }
 
-func (u *UnionPattern) patternType() string { return "Union" }
+func (*UnionPattern) isPattern() {}
 
 // FilterPattern wraps a pattern with a FILTER expression.
 type FilterPattern struct {
@@ -87,7 +87,7 @@ type FilterPattern struct {
 	Expr    Expr
 }
 
-func (f *FilterPattern) patternType() string { return "Filter" }
+func (*FilterPattern) isPattern() {}
 
 // BindPattern introduces a new variable binding.
 type BindPattern struct {
@@ -96,7 +96,7 @@ type BindPattern struct {
 	Var     string
 }
 
-func (b *BindPattern) patternType() string { return "Bind" }
+func (*BindPattern) isPattern() {}
 
 // ValuesPattern provides inline data.
 type ValuesPattern struct {
@@ -104,7 +104,7 @@ type ValuesPattern struct {
 	Values [][]rdflibgo.Term
 }
 
-func (v *ValuesPattern) patternType() string { return "Values" }
+func (*ValuesPattern) isPattern() {}
 
 // GraphPattern wraps a pattern inside a GRAPH clause.
 type GraphPattern struct {
@@ -112,52 +112,52 @@ type GraphPattern struct {
 	Pattern Pattern
 }
 
-func (g *GraphPattern) patternType() string { return "Graph" }
+func (*GraphPattern) isPattern() {}
 
 // MinusPattern removes solutions from left that are compatible with right.
 type MinusPattern struct {
 	Left, Right Pattern
 }
 
-func (m *MinusPattern) patternType() string { return "Minus" }
+func (*MinusPattern) isPattern() {}
 
 // SubqueryPattern wraps a sub-SELECT query as a pattern.
 type SubqueryPattern struct {
 	Query *ParsedQuery
 }
 
-func (s *SubqueryPattern) patternType() string { return "Subquery" }
+func (*SubqueryPattern) isPattern() {}
 
 // Expr is a filter/bind expression.
 type Expr interface {
-	exprType() string
+	isExpr()
 }
 
 type VarExpr struct{ Name string }
 
-func (e *VarExpr) exprType() string { return "Var" }
+func (*VarExpr) isExpr() {}
 
 type LiteralExpr struct{ Value rdflibgo.Term }
 
-func (e *LiteralExpr) exprType() string { return "Literal" }
+func (*LiteralExpr) isExpr() {}
 
 type IRIExpr struct{ Value string }
 
-func (e *IRIExpr) exprType() string { return "IRI" }
+func (*IRIExpr) isExpr() {}
 
 type BinaryExpr struct {
 	Op          string // "=", "!=", "<", ">", "<=", ">=", "&&", "||", "+", "-", "*", "/"
 	Left, Right Expr
 }
 
-func (e *BinaryExpr) exprType() string { return "Binary" }
+func (*BinaryExpr) isExpr() {}
 
 type UnaryExpr struct {
 	Op  string // "!", "-"
 	Arg Expr
 }
 
-func (e *UnaryExpr) exprType() string { return "Unary" }
+func (*UnaryExpr) isExpr() {}
 
 type FuncExpr struct {
 	Name      string
@@ -167,7 +167,7 @@ type FuncExpr struct {
 	Star      bool   // COUNT(*)
 }
 
-func (e *FuncExpr) exprType() string { return "Func" }
+func (*FuncExpr) isExpr() {}
 
 // ExistsExpr evaluates EXISTS { pattern } or NOT EXISTS { pattern }.
 type ExistsExpr struct {
@@ -175,7 +175,7 @@ type ExistsExpr struct {
 	Not     bool
 }
 
-func (e *ExistsExpr) exprType() string { return "Exists" }
+func (*ExistsExpr) isExpr() {}
 
 // --- SPARQL 1.1 Update AST types ---
 
@@ -187,22 +187,22 @@ type ParsedUpdate struct {
 }
 
 // UpdateOperation is a single SPARQL Update operation.
-type UpdateOperation interface{ updateOp() }
+type UpdateOperation interface{ isUpdateOp() }
 
 // InsertDataOp represents INSERT DATA { quads }.
 type InsertDataOp struct{ Quads []QuadPattern }
 
-func (o *InsertDataOp) updateOp() {}
+func (*InsertDataOp) isUpdateOp() {}
 
 // DeleteDataOp represents DELETE DATA { quads }.
 type DeleteDataOp struct{ Quads []QuadPattern }
 
-func (o *DeleteDataOp) updateOp() {}
+func (*DeleteDataOp) isUpdateOp() {}
 
 // DeleteWhereOp represents DELETE WHERE { quads }.
 type DeleteWhereOp struct{ Quads []QuadPattern }
 
-func (o *DeleteWhereOp) updateOp() {}
+func (*DeleteWhereOp) isUpdateOp() {}
 
 // ModifyOp represents DELETE { } INSERT { } WHERE { } with optional WITH/USING.
 type ModifyOp struct {
@@ -213,7 +213,7 @@ type ModifyOp struct {
 	Where  Pattern       // WHERE clause
 }
 
-func (o *ModifyOp) updateOp() {}
+func (*ModifyOp) isUpdateOp() {}
 
 // GraphMgmtOp represents CLEAR, DROP, CREATE, LOAD, ADD, MOVE, COPY.
 type GraphMgmtOp struct {
@@ -224,7 +224,7 @@ type GraphMgmtOp struct {
 	Into   string // for LOAD INTO GRAPH <g>
 }
 
-func (o *GraphMgmtOp) updateOp() {}
+func (*GraphMgmtOp) isUpdateOp() {}
 
 // QuadPattern groups triples under a graph name ("" = default graph).
 type QuadPattern struct {
