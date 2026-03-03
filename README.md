@@ -285,22 +285,25 @@ make test-sparql   # W3C SPARQL 1.1 conformance
 
 ## Performance
 
-Benchmarked against Python rdflib 7.6.0 on Apple M4 Max:
+Benchmarked against Python rdflib 7.6.0 + pyshacl 0.31.0 on Apple M4 Max:
 
 | Benchmark | Go | Python | Speedup |
 |-----------|---:|-------:|--------:|
-| NewURIRef | 25 ns | 306 ns | **12x** |
-| NewBNode | 217 ns | 2,458 ns | **11x** |
-| NewLiteral (string) | 14 ns | 1,239 ns | **89x** |
-| NewLiteral (int) | 15 ns | 1,813 ns | **121x** |
-| URIRef.N3() | 16 ns | 272 ns | **17x** |
-| Literal.N3() | 27 ns | 369 ns | **14x** |
-| Literal.Eq() | 16 ns | 317 ns | **20x** |
-| Store Add 10k | 10.5 ms | 80.9 ms | **8x** |
-| Store Lookup 1k | 6 us | 819 us | **131x** |
-| Parse Turtle | 4.5 us | 256 us | **57x** |
-| Serialize Turtle | 5.1 us | 91 us | **18x** |
-| SPARQL SELECT | 52 us | 1,674 us | **32x** |
+| NewURIRef | 40 ns | 332 ns | **8x** |
+| NewBNode | 251 ns | 2,655 ns | **11x** |
+| NewLiteral (string) | 16 ns | 1,310 ns | **82x** |
+| NewLiteral (int) | 16 ns | 1,976 ns | **124x** |
+| URIRef.N3() | 18 ns | 280 ns | **16x** |
+| Literal.N3() | 30 ns | 393 ns | **13x** |
+| Literal.Eq() | 20 ns | 339 ns | **17x** |
+| Store Add 10k | 12.4 ms | 89.4 ms | **7x** |
+| Store Lookup 1k | 7 us | 911 us | **130x** |
+| Parse Turtle | 5.4 us | 265 us | **49x** |
+| Serialize Turtle | 5.7 us | 96 us | **17x** |
+| SPARQL SELECT | 56 us | 1,820 us | **33x** |
+| SHACL Validate (10 nodes) | 21 us | 1,168 us | **56x** |
+| SHACL Validate (100 nodes) | 105 us | 8,021 us | **76x** |
+| SHACL Validate (complex) | 70 us | 8,111 us | **116x** |
 
 ```bash
 go test ./benchmarks/ -bench=. -benchmem

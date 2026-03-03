@@ -8,6 +8,7 @@ import (
 
 	"github.com/tggo/goRDFlib/graph"
 	"github.com/tggo/goRDFlib/namespace"
+	"github.com/tggo/goRDFlib/shacl"
 	"github.com/tggo/goRDFlib/sparql"
 	"github.com/tggo/goRDFlib/store"
 	"github.com/tggo/goRDFlib/term"
@@ -130,6 +131,122 @@ func BenchmarkSerializeTurtle(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		var buf bytes.Buffer
 		turtle.Serialize(g, &buf)
+	}
+}
+
+// --- SPARQL select ---
+
+// --- SHACL validation (small: 10 nodes, 5 constraints) ---
+
+var shaclShapesSmall = `
+@prefix sh: <http://www.w3.org/ns/shacl#> .
+@prefix ex: <http://example.org/> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+ex:PersonShape a sh:NodeShape ;
+    sh:targetClass ex:Person ;
+    sh:property [
+        sh:path ex:name ;
+        sh:minCount 1 ;
+        sh:maxCount 1 ;
+        sh:datatype xsd:string ;
+    ] ;
+    sh:property [
+        sh:path ex:age ;
+        sh:datatype xsd:integer ;
+        sh:minInclusive 0 ;
+        sh:maxInclusive 150 ;
+    ] .
+`
+
+func makeSHACLDataSmall() string {
+	var sb strings.Builder
+	sb.WriteString("@prefix ex: <http://example.org/> .\n")
+	sb.WriteString("@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .\n\n")
+	for i := 0; i < 10; i++ {
+		fmt.Fprintf(&sb, "ex:person%d a ex:Person ; ex:name \"Person %d\" ; ex:age %d .\n", i, i, 20+i)
+	}
+	return sb.String()
+}
+
+func BenchmarkSHACLValidateSmall(b *testing.B) {
+	shapes, _ := shacl.LoadTurtleString(shaclShapesSmall, "")
+	data, _ := shacl.LoadTurtleString(makeSHACLDataSmall(), "")
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		shacl.Validate(data, shapes)
+	}
+}
+
+// --- SHACL validation (medium: 100 nodes, 5 constraints) ---
+
+func makeSHACLDataMedium() string {
+	var sb strings.Builder
+	sb.WriteString("@prefix ex: <http://example.org/> .\n")
+	sb.WriteString("@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .\n\n")
+	for i := 0; i < 100; i++ {
+		fmt.Fprintf(&sb, "ex:person%d a ex:Person ; ex:name \"Person %d\" ; ex:age %d .\n", i, i, 20+i%100)
+	}
+	return sb.String()
+}
+
+func BenchmarkSHACLValidateMedium(b *testing.B) {
+	shapes, _ := shacl.LoadTurtleString(shaclShapesSmall, "")
+	data, _ := shacl.LoadTurtleString(makeSHACLDataMedium(), "")
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		shacl.Validate(data, shapes)
+	}
+}
+
+// --- SHACL validation (complex: multiple shapes, logical constraints) ---
+
+var shaclShapesComplex = `
+@prefix sh: <http://www.w3.org/ns/shacl#> .
+@prefix ex: <http://example.org/> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+ex:PersonShape a sh:NodeShape ;
+    sh:targetClass ex:Person ;
+    sh:property [
+        sh:path ex:name ;
+        sh:minCount 1 ;
+        sh:datatype xsd:string ;
+        sh:minLength 1 ;
+        sh:maxLength 100 ;
+    ] ;
+    sh:property [
+        sh:path ex:email ;
+        sh:pattern "^[^@]+@[^@]+$" ;
+    ] ;
+    sh:property [
+        sh:path ex:knows ;
+        sh:class ex:Person ;
+    ] ;
+    sh:property [
+        sh:path ex:status ;
+        sh:in ( "active" "inactive" "pending" ) ;
+    ] .
+`
+
+func makeSHACLDataComplex() string {
+	var sb strings.Builder
+	sb.WriteString("@prefix ex: <http://example.org/> .\n\n")
+	for i := 0; i < 50; i++ {
+		fmt.Fprintf(&sb, "ex:p%d a ex:Person ; ex:name \"Person %d\" ; ex:email \"p%d@example.org\" ; ex:status \"active\" .\n", i, i, i)
+		if i > 0 {
+			fmt.Fprintf(&sb, "ex:p%d ex:knows ex:p%d .\n", i, i-1)
+		}
+	}
+	return sb.String()
+}
+
+func BenchmarkSHACLValidateComplex(b *testing.B) {
+	shapes, _ := shacl.LoadTurtleString(shaclShapesComplex, "")
+	data, _ := shacl.LoadTurtleString(makeSHACLDataComplex(), "")
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		shacl.Validate(data, shapes)
 	}
 }
 
