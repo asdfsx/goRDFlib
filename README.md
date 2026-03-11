@@ -17,6 +17,7 @@
 ![W3C TriG](https://img.shields.io/badge/W3C_TriG-356%2F356-brightgreen)
 ![W3C TriG 1.2](https://img.shields.io/badge/W3C_TriG_1.2-60%2F60-brightgreen)
 ![W3C SHACL](https://img.shields.io/badge/W3C_SHACL-98%2F98-brightgreen)
+![SPARQL Protocol](https://img.shields.io/badge/SPARQL_Protocol-99.7%25_coverage-brightgreen)
 
 A Go port of the Python [RDFLib](https://github.com/RDFLib/rdflib) library for working with RDF (Resource Description Framework) data.
 
@@ -55,6 +56,16 @@ goRDFlib is a Go implementation of the core RDFLib functionality, ported from th
 - Thread-safe triple store with RWMutex
 - Three-way indexing (SPO, POS, OSP) for efficient pattern matching
 - Namespace binding storage
+
+### Remote SPARQL Store
+
+- **SPARQLStore** -- `store.Store` implementation backed by a remote SPARQL endpoint
+- Full W3C SPARQL 1.1 Protocol support (query via GET/POST, update via POST)
+- Content negotiation: `application/sparql-results+xml`, `application/sparql-results+json`
+- Named graph support via `GRAPH` clause wrapping
+- Options: `WithUpdate()`, `WithHTTPClient()`, `WithTimeout()`
+- Built-in test server (`sparqlstore.Server`) for integration testing
+- Registered as `"sparql"` store type via the plugin system
 
 ### Serialization Formats
 
@@ -398,6 +409,7 @@ goRDFlib/
   jsonld/       JSON-LD parser and serializer
   trig/         TriG parser and serializer
   sparql/       SPARQL 1.1/1.2 query and update engine
+  store/sparqlstore/  Remote SPARQL Protocol store + test server
   paths/        Property path evaluation
   shacl/        SHACL Core validator
   rdfloader/    HTTP/file URI loader for SPARQL LOAD

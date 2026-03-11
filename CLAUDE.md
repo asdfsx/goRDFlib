@@ -42,3 +42,14 @@
 - All W3C test suites must stay at 100% pass rate
 - Add benchmarks (`_bench_test.go`) for performance-critical packages
 - Isomorphism checks: avoid O(n²) algorithms — use reverse indexes for signature matching
+
+## Key Packages
+
+### store/sparqlstore
+- `SPARQLStore` implements `store.Store` via HTTP SPARQL Protocol (W3C SPARQL 1.1 Protocol)
+- `Server` is an httptest-based SPARQL endpoint for integration testing
+- Files: `doc.go` (package doc), `store.go` (Store impl), `http.go` (HTTP client), `server.go` (test server), `register.go` (plugin registration)
+- Store interface has 13 methods; write ops silently ignore errors (interface constraint)
+- `wrapGraph` ignores BNode contexts — Graph passes BNode IDs as context, but bnodes can't name SPARQL graphs
+- Server queries `ds.Default` only; GRAPH clause queries against named graphs are not supported by the test server
+- Test coverage: 99.7% (71 tests)
