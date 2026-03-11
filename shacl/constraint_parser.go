@@ -4,16 +4,37 @@ func parseConstraints(g *Graph, s *Shape, shapes map[string]*Shape) []Constraint
 	var result []Constraint
 	id := s.ID
 
+	// sh:class — SHACL 1.2: may be a list of classes (OR semantics)
 	for _, v := range g.Objects(id, IRI(SH+"class")) {
-		result = append(result, &ClassConstraint{Class: v})
+		firstPred := IRI(RDFFirst)
+		if g.Has(&v, &firstPred, nil) {
+			items := g.RDFList(v)
+			result = append(result, &ClassListConstraint{Classes: items})
+		} else {
+			result = append(result, &ClassConstraint{Class: v})
+		}
 	}
 
+	// sh:datatype — SHACL 1.2: may be a list of datatypes (OR semantics)
 	for _, v := range g.Objects(id, IRI(SH+"datatype")) {
-		result = append(result, &DatatypeConstraint{Datatype: v})
+		firstPred := IRI(RDFFirst)
+		if g.Has(&v, &firstPred, nil) {
+			items := g.RDFList(v)
+			result = append(result, &DatatypeListConstraint{Datatypes: items})
+		} else {
+			result = append(result, &DatatypeConstraint{Datatype: v})
+		}
 	}
 
+	// sh:nodeKind — SHACL 1.2: may be a list of nodeKinds (OR semantics)
 	for _, v := range g.Objects(id, IRI(SH+"nodeKind")) {
-		result = append(result, &NodeKindConstraint{NodeKind: v})
+		firstPred := IRI(RDFFirst)
+		if g.Has(&v, &firstPred, nil) {
+			items := g.RDFList(v)
+			result = append(result, &NodeKindListConstraint{NodeKinds: items})
+		} else {
+			result = append(result, &NodeKindConstraint{NodeKind: v})
+		}
 	}
 
 	for _, v := range g.Objects(id, IRI(SH+"minCount")) {
@@ -69,17 +90,19 @@ func parseConstraints(g *Graph, s *Shape, shapes map[string]*Shape) []Constraint
 		}
 	}
 
+	// sh:equals, sh:disjoint, sh:lessThan, sh:lessThanOrEquals
+	// SHACL 1.2: value may be a property path (list = sequence path)
 	for _, v := range g.Objects(id, IRI(SH+"equals")) {
-		result = append(result, &EqualsConstraint{Path: v})
+		result = append(result, makePairConstraint("equals", g, v))
 	}
 	for _, v := range g.Objects(id, IRI(SH+"disjoint")) {
-		result = append(result, &DisjointConstraint{Path: v})
+		result = append(result, makePairConstraint("disjoint", g, v))
 	}
 	for _, v := range g.Objects(id, IRI(SH+"lessThan")) {
-		result = append(result, &LessThanConstraint{Path: v})
+		result = append(result, makePairConstraint("lessThan", g, v))
 	}
 	for _, v := range g.Objects(id, IRI(SH+"lessThanOrEquals")) {
-		result = append(result, &LessThanOrEqualsConstraint{Path: v})
+		result = append(result, makePairConstraint("lessThanOrEquals", g, v))
 	}
 
 	for _, v := range g.Objects(id, IRI(SH+"and")) {
@@ -147,18 +170,118 @@ func parseConstraints(g *Graph, s *Shape, shapes map[string]*Shape) []Constraint
 		result = append(result, &InConstraint{Values: g.RDFList(v)})
 	}
 
-	if s.Closed {
-		var allowed []Term
-		for _, ps := range s.Properties {
-			if ps.Path != nil && ps.Path.Kind == PathPredicate {
-				allowed = append(allowed, ps.Path.Pred)
-			}
+	// SHACL 1.2: new constraints
+	for _, v := range g.Objects(id, IRI(SH+"singleLine")) {
+		if v.Value() == "true" {
+			result = append(result, &SingleLineConstraint{SingleLine: true})
 		}
+	}
+
+	for _, v := range g.Objects(id, IRI(SH+"someValue")) {
+		result = append(result, &SomeValueConstraint{ShapeRef: v})
+	}
+
+	for _, v := range g.Objects(id, IRI(SH+"subsetOf")) {
+		result = append(result, &SubsetOfConstraint{OtherPath: parsePath(g, v)})
+	}
+
+	for _, v := range g.Objects(id, IRI(SH+"uniqueMembers")) {
+		if v.Value() == "true" {
+			result = append(result, &UniqueMembersConstraint{UniqueMembers: true})
+		}
+	}
+
+	for _, v := range g.Objects(id, IRI(SH+"memberShape")) {
+		result = append(result, &MemberShapeConstraint{ShapeRef: v})
+	}
+
+	for _, v := range g.Objects(id, IRI(SH+"minListLength")) {
+		result = append(result, &MinListLengthConstraint{MinLength: parseInt(v)})
+	}
+	for _, v := range g.Objects(id, IRI(SH+"maxListLength")) {
+		result = append(result, &MaxListLengthConstraint{MaxLength: parseInt(v)})
+	}
+
+	for _, v := range g.Objects(id, IRI(SH+"reifierShape")) {
+		reifReq := false
+		if rr := g.Objects(id, IRI(SH+"reificationRequired")); len(rr) > 0 {
+			reifReq = rr[0].Value() == "true"
+		}
+		result = append(result, &ReifierShapeConstraint{ShapeRef: v, ReificationRequired: reifReq})
+	}
+
+	// sh:expression (SHACL 1.2 Node Expressions)
+	for _, v := range g.Objects(id, IRI(SH+"expression")) {
+		result = append(result, &ExpressionConstraint{ExprNode: v})
+	}
+
+	// sh:nodeByExpression (SHACL 1.2 Node Expressions)
+	for _, v := range g.Objects(id, IRI(SH+"nodeByExpression")) {
+		result = append(result, &NodeByExpressionConstraint{ShapeRef: v})
+	}
+
+	// sh:sparql constraints
+	for _, v := range g.Objects(id, IRI(SH+"sparql")) {
+		sc := &SPARQLConstraint{Node: v}
+		if sel := g.Objects(v, IRI(SH+"select")); len(sel) > 0 {
+			sc.Select = sel[0].Value()
+		} else {
+			continue
+		}
+		if prefs := g.Objects(v, IRI(SH+"prefixes")); len(prefs) > 0 {
+			sc.Prefixes = resolvePrefixes(g, prefs[0])
+		}
+		sc.Messages = g.Objects(v, IRI(SH+"message"))
+		if deact := g.Objects(v, IRI(SH+"deactivated")); len(deact) > 0 {
+			sc.Deactivated = deact[0].Value() == "true"
+		}
+		result = append(result, sc)
+	}
+
+	// sh:closed / sh:closed sh:ByTypes
+	if s.Closed {
+		allowed := collectClosedAllowed(g, s)
 		result = append(result, &ClosedConstraint{
 			AllowedProperties: allowed,
 			IgnoredProperties: s.IgnoredProperties,
 		})
+	} else if s.ClosedByTypes {
+		result = append(result, &ClosedByTypesConstraint{
+			Shape: s,
+		})
 	}
 
 	return result
+}
+
+// makePairConstraint creates a pair constraint (equals/disjoint/lessThan/lessThanOrEquals)
+// that supports both simple IRI properties and property path sequences (SHACL 1.2).
+func makePairConstraint(kind string, g *Graph, v Term) Constraint {
+	path := parsePath(g, v)
+	if path.Kind == PathPredicate {
+		// Simple IRI — use original constraint types
+		switch kind {
+		case "equals":
+			return &EqualsConstraint{Path: v}
+		case "disjoint":
+			return &DisjointConstraint{Path: v}
+		case "lessThan":
+			return &LessThanConstraint{Path: v}
+		case "lessThanOrEquals":
+			return &LessThanOrEqualsConstraint{Path: v}
+		}
+	}
+	// Property path sequence — use path-based constraint
+	return &PairPathConstraint{Kind: kind, OtherPath: path}
+}
+
+// collectClosedAllowed gathers all allowed properties for a sh:closed shape.
+func collectClosedAllowed(g *Graph, s *Shape) []Term {
+	var allowed []Term
+	for _, ps := range s.Properties {
+		if ps.Path != nil && ps.Path.Kind == PathPredicate {
+			allowed = append(allowed, ps.Path.Pred)
+		}
+	}
+	return allowed
 }

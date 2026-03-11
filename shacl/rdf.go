@@ -22,6 +22,7 @@ const (
 	RDFS = "http://www.w3.org/2000/01/rdf-schema#"
 	XSD  = "http://www.w3.org/2001/XMLSchema#"
 	SH   = "http://www.w3.org/ns/shacl#"
+	OWL  = "http://www.w3.org/2002/07/owl#"
 	MF   = "http://www.w3.org/2001/sw/DataAccess/tests/test-manifest#"
 	SHT  = "http://www.w3.org/ns/shacl-test#"
 )
@@ -161,13 +162,23 @@ func fromRDFLib(t term.Term) Term {
 	case term.Literal:
 		dt := v.Datatype().Value()
 		lang := v.Language()
+		dir := v.Dir()
 		val := v.Lexical()
 		if lang != "" && dt == "" {
-			dt = RDF + "langString"
+			if dir != "" {
+				dt = RDF + "dirLangString"
+			} else {
+				dt = RDF + "langString"
+			}
 		} else if dt == "" && lang == "" {
 			dt = XSD + "string"
 		}
-		return Term{kind: TermLiteral, value: val, datatype: dt, language: lang}
+		// Combine language and direction into a single tag (e.g. "ar--ltr")
+		fullLang := lang
+		if dir != "" {
+			fullLang = lang + "--" + dir
+		}
+		return Term{kind: TermLiteral, value: val, datatype: dt, language: fullLang}
 	case term.BNode:
 		return Term{kind: TermBlankNode, value: v.Value()}
 	}
@@ -403,10 +414,16 @@ func (g *Graph) RDFList(head Term) []Term {
 	nilTerm := IRI(RDFNil)
 	firstPred := IRI(RDFFirst)
 	restPred := IRI(RDFRest)
+	visited := make(map[string]bool)
 	for {
 		if current.Equal(nilTerm) {
 			break
 		}
+		key := current.TermKey()
+		if visited[key] {
+			break // cycle detected
+		}
+		visited[key] = true
 		firsts := g.Objects(current, firstPred)
 		if len(firsts) == 0 {
 			break

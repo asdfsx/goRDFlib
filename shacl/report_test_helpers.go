@@ -42,6 +42,9 @@ func parseValidationResult(g *Graph, node Term) ValidationResult {
 	if vals := g.Objects(node, IRI(SH+"sourceConstraintComponent")); len(vals) > 0 {
 		vr.SourceConstraintComponent = vals[0]
 	}
+	if vals := g.Objects(node, IRI(SH+"sourceConstraint")); len(vals) > 0 {
+		vr.SourceConstraint = vals[0]
+	}
 	if vals := g.Objects(node, IRI(SH+"resultSeverity")); len(vals) > 0 {
 		vr.ResultSeverity = vals[0]
 	}
@@ -58,6 +61,7 @@ func ResultKey(r ValidationResult) string {
 		normalizeTerm(r.SourceConstraintComponent),
 		normalizeTerm(r.ResultSeverity),
 		normalizeTerm(r.SourceShape),
+		normalizeTerm(r.SourceConstraint),
 	}
 	return strings.Join(parts, "|")
 }

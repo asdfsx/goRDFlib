@@ -93,3 +93,86 @@ func containsTerm(terms []Term, t Term) bool {
 	}
 	return false
 }
+
+// PairPathConstraint implements pair comparison constraints (equals, disjoint,
+// lessThan, lessThanOrEquals) when the other side is a property path sequence
+// rather than a simple IRI (SHACL 1.2).
+type PairPathConstraint struct {
+	Kind      string // "equals", "disjoint", "lessThan", "lessThanOrEquals"
+	OtherPath *PropertyPath
+}
+
+func (c *PairPathConstraint) ComponentIRI() string {
+	switch c.Kind {
+	case "equals":
+		return SH + "EqualsConstraintComponent"
+	case "disjoint":
+		return SH + "DisjointConstraintComponent"
+	case "lessThan":
+		return SH + "LessThanConstraintComponent"
+	case "lessThanOrEquals":
+		return SH + "LessThanOrEqualsConstraintComponent"
+	}
+	return ""
+}
+
+func (c *PairPathConstraint) Evaluate(ctx *evalContext, shape *Shape, focusNode Term, valueNodes []Term) []ValidationResult {
+	otherValues := evalPath(ctx.dataGraph, c.OtherPath, focusNode)
+	switch c.Kind {
+	case "equals":
+		return evalPathEquals(shape, focusNode, valueNodes, otherValues, c.ComponentIRI())
+	case "disjoint":
+		return evalPathDisjoint(shape, focusNode, valueNodes, otherValues, c.ComponentIRI())
+	case "lessThan":
+		return evalPairPathComparison(shape, focusNode, valueNodes, otherValues, c.ComponentIRI(), false)
+	case "lessThanOrEquals":
+		return evalPairPathComparison(shape, focusNode, valueNodes, otherValues, c.ComponentIRI(), true)
+	}
+	return nil
+}
+
+func evalPathEquals(shape *Shape, focusNode Term, valueNodes, otherValues []Term, component string) []ValidationResult {
+	var results []ValidationResult
+	for _, vn := range valueNodes {
+		if !containsTerm(otherValues, vn) {
+			results = append(results, makeResult(shape, focusNode, vn, component))
+		}
+	}
+	for _, ov := range otherValues {
+		if !containsTerm(valueNodes, ov) {
+			results = append(results, makeResult(shape, focusNode, ov, component))
+		}
+	}
+	return results
+}
+
+func evalPathDisjoint(shape *Shape, focusNode Term, valueNodes, otherValues []Term, component string) []ValidationResult {
+	var results []ValidationResult
+	for _, vn := range valueNodes {
+		if containsTerm(otherValues, vn) {
+			results = append(results, makeResult(shape, focusNode, vn, component))
+		}
+	}
+	return results
+}
+
+func evalPairPathComparison(shape *Shape, focusNode Term, valueNodes, otherValues []Term, component string, allowEqual bool) []ValidationResult {
+	var results []ValidationResult
+	for _, vn := range valueNodes {
+		for _, ov := range otherValues {
+			cmp, ok := compareLiterals(vn, ov)
+			if !ok {
+				if vn.IsIRI() && ov.IsIRI() {
+					if (!allowEqual && vn.Value() >= ov.Value()) || (allowEqual && vn.Value() > ov.Value()) {
+						results = append(results, makeResult(shape, focusNode, vn, component))
+					}
+					continue
+				}
+				results = append(results, makeResult(shape, focusNode, vn, component))
+			} else if (!allowEqual && cmp >= 0) || (allowEqual && cmp > 0) {
+				results = append(results, makeResult(shape, focusNode, vn, component))
+			}
+		}
+	}
+	return results
+}

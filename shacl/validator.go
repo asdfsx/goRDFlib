@@ -29,8 +29,18 @@ func Validate(dataGraph, shapesGraph *Graph) ValidationReport {
 		}
 	}
 
+	// SHACL 1.2: sh:Debug and sh:Trace severities don't affect sh:conforms
+	conforms := true
+	for _, r := range allResults {
+		sev := r.ResultSeverity.Value()
+		if sev != SH+"Debug" && sev != SH+"Trace" {
+			conforms = false
+			break
+		}
+	}
+
 	return ValidationReport{
-		Conforms: len(allResults) == 0,
+		Conforms: conforms,
 		Results:  allResults,
 	}
 }
@@ -58,7 +68,14 @@ func validateShapeOnNode(ctx *evalContext, s *Shape, focusNode Term) []Validatio
 
 func validatePropertyShape(ctx *evalContext, s *Shape, focusNode Term) []ValidationResult {
 	var results []ValidationResult
-	valueNodes := evalPath(ctx.dataGraph, s.Path, focusNode)
+	var valueNodes []Term
+
+	if s.Values != nil {
+		// SHACL 1.2: sh:values — compute value nodes via SPARQL
+		valueNodes = evalSPARQLValues(ctx, s.Values, focusNode)
+	} else {
+		valueNodes = evalPath(ctx.dataGraph, s.Path, focusNode)
+	}
 
 	for _, c := range s.Constraints {
 		results = append(results, c.Evaluate(ctx, s, focusNode, valueNodes)...)
@@ -74,6 +91,34 @@ func validatePropertyShape(ctx *evalContext, s *Shape, focusNode Term) []Validat
 	}
 
 	return results
+}
+
+// evalSPARQLValues computes value nodes using a SPARQL query or expression.
+func evalSPARQLValues(ctx *evalContext, v *SPARQLValues, focusNode Term) []Term {
+	var query string
+	if v.Select != "" {
+		query = v.Prefixes + v.Select
+	} else if v.Expr != "" {
+		query = v.Prefixes + "SELECT (" + v.Expr + " AS ?value) WHERE { }"
+	} else {
+		return nil
+	}
+	// Simple textual substitution — don't use preBindQuery which strips variables from SELECT
+	thisVal := termToSPARQL(focusNode)
+	query = replaceVar(query, "$this", thisVal)
+	query = replaceVar(query, "?this", thisVal)
+	rows, err := executeSPARQL(ctx.dataGraph, query, nil, nil)
+	if err != nil {
+		return nil
+	}
+	var values []Term
+	for _, row := range rows {
+		for _, val := range row {
+			values = append(values, val)
+			break
+		}
+	}
+	return values
 }
 
 // validateNodeAgainstShape validates a single node against a shape (used by logical constraints).
@@ -115,6 +160,23 @@ func subClasses(g *Graph, class Term) []Term {
 	return result
 }
 
+// allNodes returns all unique subjects and objects in the data graph.
+func allNodes(g *Graph) []Term {
+	seen := make(map[string]bool)
+	var nodes []Term
+	for _, t := range g.Triples() {
+		if k := t.Subject.TermKey(); !seen[k] {
+			seen[k] = true
+			nodes = append(nodes, t.Subject)
+		}
+		if k := t.Object.TermKey(); !seen[k] {
+			seen[k] = true
+			nodes = append(nodes, t.Object)
+		}
+	}
+	return nodes
+}
+
 func resolveTargets(ctx *evalContext, s *Shape) []Term {
 	seen := make(map[string]bool)
 	var targets []Term
@@ -152,7 +214,39 @@ func resolveTargets(ctx *evalContext, s *Shape) []Term {
 			for _, t := range ctx.dataGraph.All(nil, &pred, nil) {
 				addTarget(t.Object)
 			}
+		case TargetSPARQL:
+			query := tgt.Select
+			results, err := executeSPARQL(ctx.dataGraph, query, nil, nil)
+			if err == nil {
+				for _, row := range results {
+					// First bound variable is the target node
+					for _, v := range row {
+						addTarget(v)
+						break
+					}
+				}
+			}
+		case TargetWhere:
+			// sh:targetWhere: target nodes are all nodes in the data graph that
+			// conform to the shape described by the targetWhere value.
+			twShape := ctx.shapesMap[tgt.Value.String()]
+			if twShape != nil {
+				candidates := allNodes(ctx.dataGraph)
+				for _, node := range candidates {
+					results := validateShapeOnNode(ctx, twShape, node)
+					if len(results) == 0 {
+						addTarget(node)
+					}
+				}
+			}
 		}
+	}
+
+	// SHACL 1.2: sh:shape — nodes in the data graph that declare sh:shape targeting this shape
+	shapePred := IRI(SH + "shape")
+	shapeID := s.ID
+	for _, t := range ctx.dataGraph.All(nil, &shapePred, &shapeID) {
+		addTarget(t.Subject)
 	}
 
 	return targets

@@ -137,6 +137,11 @@ func (p *sparqlParser) parseGroupGraphPattern() (Pattern, error) {
 				return nil, err
 			}
 			deferredFilters = append(deferredFilters, expr)
+			// Skip optional '.' after FILTER (per SPARQL grammar: GraphPatternNotTriples '.'?)
+			p.skipWS()
+			if p.pos < len(p.input) && p.input[p.pos] == '.' {
+				p.pos++
+			}
 			continue
 		}
 

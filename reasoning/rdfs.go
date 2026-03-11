@@ -18,29 +18,27 @@ func RDFSClosure(g *graph.Graph) int {
 
 // rdfsEngine holds schema indexes and dedup state for RDFS closure computation.
 type rdfsEngine struct {
-	g *graph.Graph
+	g   *graph.Graph
+	ded *dedupSet
 
 	// Schema indexes
-	domains    map[string][]term.URIRef  // predicate key → domain classes
-	ranges     map[string][]term.URIRef  // predicate key → range classes
-	subClassOf map[string][]term.URIRef  // class key → transitive superclasses
-	subPropOf  map[string][]term.URIRef  // property key → transitive superproperties
-
-	// Dedup
-	existing map[string]struct{}
+	domains    map[string][]term.URIRef // predicate key → domain classes
+	ranges     map[string][]term.URIRef // predicate key → range classes
+	subClassOf map[string][]term.URIRef // class key → transitive superclasses
+	subPropOf  map[string][]term.URIRef // property key → transitive superproperties
 }
 
 func newRDFSEngine(g *graph.Graph) *rdfsEngine {
 	return &rdfsEngine{
-		g:        g,
-		existing: make(map[string]struct{}, g.Len()),
+		g:   g,
+		ded: newDedupSet(g.Len()),
 	}
 }
 
 func (e *rdfsEngine) run() int {
 	// Build existing set from all triples
 	e.g.Triples(nil, nil, nil)(func(t term.Triple) bool {
-		e.existing[tripleKey(t.Subject, t.Predicate, t.Object)] = struct{}{}
+		e.ded.addNew(t.Subject, t.Predicate, t.Object)
 		return true
 	})
 
@@ -168,7 +166,7 @@ func (e *rdfsEngine) applyRules() []term.Triple {
 		// rdfs2: ?p rdfs:domain ?C, ?s ?p ?o → ?s rdf:type ?C
 		if domains, ok := e.domains[pk]; ok {
 			for _, c := range domains {
-				if e.addNew(t.Subject, rdfType, c) {
+				if e.ded.addNew(t.Subject, rdfType, c) {
 					newTriples = append(newTriples, term.Triple{Subject: t.Subject, Predicate: rdfType, Object: c})
 				}
 			}
@@ -178,7 +176,7 @@ func (e *rdfsEngine) applyRules() []term.Triple {
 		if ranges, ok := e.ranges[pk]; ok {
 			if oSubj, ok := t.Object.(term.Subject); ok {
 				for _, c := range ranges {
-					if e.addNew(oSubj, rdfType, c) {
+					if e.ded.addNew(oSubj, rdfType, c) {
 						newTriples = append(newTriples, term.Triple{Subject: oSubj, Predicate: rdfType, Object: c})
 					}
 				}
@@ -188,7 +186,7 @@ func (e *rdfsEngine) applyRules() []term.Triple {
 		// rdfs7: ?p rdfs:subPropertyOf ?q, ?s ?p ?o → ?s ?q ?o
 		if superProps, ok := e.subPropOf[pk]; ok {
 			for _, q := range superProps {
-				if e.addNew(t.Subject, q, t.Object) {
+				if e.ded.addNew(t.Subject, q, t.Object) {
 					newTriples = append(newTriples, term.Triple{Subject: t.Subject, Predicate: q, Object: t.Object})
 				}
 			}
@@ -200,7 +198,7 @@ func (e *rdfsEngine) applyRules() []term.Triple {
 				c1k := term.TermKey(c1)
 				if superClasses, ok := e.subClassOf[c1k]; ok {
 					for _, c2 := range superClasses {
-						if e.addNew(t.Subject, rdfType, c2) {
+						if e.ded.addNew(t.Subject, rdfType, c2) {
 							newTriples = append(newTriples, term.Triple{Subject: t.Subject, Predicate: rdfType, Object: c2})
 						}
 					}
@@ -214,16 +212,3 @@ func (e *rdfsEngine) applyRules() []term.Triple {
 	return newTriples
 }
 
-// addNew checks if a triple is new and marks it as existing. Returns true if new.
-func (e *rdfsEngine) addNew(s term.Subject, p term.URIRef, o term.Term) bool {
-	k := tripleKey(s, p, o)
-	if _, exists := e.existing[k]; exists {
-		return false
-	}
-	e.existing[k] = struct{}{}
-	return true
-}
-
-func tripleKey(s term.Subject, p term.URIRef, o term.Term) string {
-	return term.TermKey(s) + "|" + term.TermKey(p) + "|" + term.TermKey(o)
-}

@@ -13,6 +13,7 @@ type ValidationResult struct {
 	Value                     Term
 	SourceShape               Term
 	SourceConstraintComponent Term
+	SourceConstraint          Term
 	ResultSeverity            Term
 	ResultMessages            []Term
 	Details                   []ValidationResult
