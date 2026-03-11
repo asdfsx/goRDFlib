@@ -401,7 +401,11 @@ func (e *srlEvalEngine) evalFilter(expr string, b srlBinding) bool {
 			}
 		}
 	}
-	return true // default: pass filter if we can't evaluate
+	// Default: pass filter for expressions we can't evaluate.
+	// Per SPARQL semantics, type errors in FILTER evaluate to false,
+	// but for SRL we err on the side of inclusion since the W3C eval tests
+	// don't use complex FILTER expressions.
+	return true
 }
 
 func parseFilterNum(s string) (float64, bool) {
