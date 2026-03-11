@@ -388,11 +388,11 @@ func (p *turtleParser) readObject() (rdflibgo.Term, error) {
 	}
 
 	// Boolean keywords
-	if p.startsWith("true") && (p.pos+4 >= len(p.input) || isDelimiter(p.input[p.pos+4])) {
+	if p.startsWith("true") && (p.pos+4 >= len(p.input) || isBoolTerminator(p.input[p.pos+4])) {
 		p.pos += 4
 		return rdflibgo.NewLiteral(true), nil
 	}
-	if p.startsWith("false") && (p.pos+5 >= len(p.input) || isDelimiter(p.input[p.pos+5])) {
+	if p.startsWith("false") && (p.pos+5 >= len(p.input) || isBoolTerminator(p.input[p.pos+5])) {
 		p.pos += 5
 		return rdflibgo.NewLiteral(false), nil
 	}
@@ -1029,6 +1029,12 @@ func (p *turtleParser) errorf(format string, args ...any) error {
 // ')' added for triple term <<(...true)>> parsing; '~' added for RDF 1.2 reifier syntax.
 func isDelimiter(ch byte) bool {
 	return ch == ' ' || ch == '\t' || ch == '\n' || ch == '\r' || ch == '<' || ch == '>' || ch == '"' || ch == '\'' || ch == '{' || ch == '}' || ch == '|' || ch == '^' || ch == '`' || ch == ')' || ch == '~'
+}
+
+// isBoolTerminator returns true for characters that terminate a boolean keyword (true/false).
+// Includes all delimiters plus '.', ';', ',' which are Turtle statement separators.
+func isBoolTerminator(ch byte) bool {
+	return isDelimiter(ch) || ch == '.' || ch == ';' || ch == ','
 }
 
 func isWhitespace(ch byte) bool {

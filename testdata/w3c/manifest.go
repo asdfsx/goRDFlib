@@ -39,6 +39,12 @@ type TestEntry struct {
 	ActionGraphData []NamedGraphRef  // ut:graphData in action (pre-data for named graphs)
 	ResultData      string           // ut:data in result (post-data for default graph)
 	ResultGraphData []NamedGraphRef  // ut:graphData in result (post-data for named graphs)
+
+	// Entailment test fields
+	EntailmentRegime      string   // mf:entailmentRegime ("simple"/"RDF"/"RDFS")
+	RecognizedDatatypes   []string // mf:recognizedDatatypes (IRI list)
+	UnrecognizedDatatypes []string // mf:unrecognizedDatatypes (IRI list)
+	ResultFalse           bool     // true when mf:result is literal `false`
 }
 
 // NamedGraphRef is a named graph reference with a file path and label (graph IRI).
@@ -106,6 +112,11 @@ func ParseManifest(manifestPath string) (*Manifest, error) {
 	utGraph := term.NewURIRefUnsafe(ut + "graph")
 	rdfsLabel := term.NewURIRefUnsafe("http://www.w3.org/2000/01/rdf-schema#label")
 
+	// Entailment test predicates
+	entailmentRegimePred := term.NewURIRefUnsafe(mf + "entailmentRegime")
+	recognizedDTPred := term.NewURIRefUnsafe(mf + "recognizedDatatypes")
+	unrecognizedDTPred := term.NewURIRefUnsafe(mf + "unrecognizedDatatypes")
+
 	coll.Iter()(func(item term.Term) bool {
 		subj, ok := item.(term.Subject)
 		if !ok {
@@ -168,6 +179,11 @@ func ParseManifest(manifestPath string) (*Manifest, error) {
 			switch rv := v.(type) {
 			case term.URIRef:
 				e.Result = toFilePath(rv.Value())
+			case term.Literal:
+				// mf:result false (boolean literal indicating inconsistency)
+				if rv.Lexical() == "false" {
+					e.ResultFalse = true
+				}
 			case term.Subject:
 				if dv, ok := g.Value(rv, &utData, nil); ok {
 					e.ResultData = toFilePath(dv.(term.URIRef).Value())
@@ -186,6 +202,35 @@ func ParseManifest(manifestPath string) (*Manifest, error) {
 					}
 					e.ResultGraphData = append(e.ResultGraphData, ref)
 				}
+			}
+		}
+
+		// Parse entailment test fields
+		if v, ok := g.Value(subj, &entailmentRegimePred, nil); ok {
+			if lit, ok := v.(term.Literal); ok {
+				e.EntailmentRegime = lit.Lexical()
+			}
+		}
+		if v, ok := g.Value(subj, &recognizedDTPred, nil); ok {
+			if listHead, ok := v.(term.Subject); ok {
+				c := graph.NewCollection(g, listHead)
+				c.Iter()(func(item term.Term) bool {
+					if u, ok := item.(term.URIRef); ok {
+						e.RecognizedDatatypes = append(e.RecognizedDatatypes, u.Value())
+					}
+					return true
+				})
+			}
+		}
+		if v, ok := g.Value(subj, &unrecognizedDTPred, nil); ok {
+			if listHead, ok := v.(term.Subject); ok {
+				c := graph.NewCollection(g, listHead)
+				c.Iter()(func(item term.Term) bool {
+					if u, ok := item.(term.URIRef); ok {
+						e.UnrecognizedDatatypes = append(e.UnrecognizedDatatypes, u.Value())
+					}
+					return true
+				})
 			}
 		}
 
