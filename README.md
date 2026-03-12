@@ -413,6 +413,22 @@ go test ./benchmarks/ -bench=. -benchmem
 python3 benchmarks/bench_python.py
 ```
 
+### Store Stress Test (3M triples, Apple M4 Max)
+
+| Metric | Memory | Badger | Badger Disk | SQLite | SQLite Disk |
+|--------|-------:|-------:|------------:|-------:|------------:|
+| **Ingest time** | 5.5s | 7.7s | 9.0s | 21.5s | 28.8s |
+| **Ingest rate** | 544K/s | 389K/s | 335K/s | 139K/s | 104K/s |
+| **RAM delta** | 8.1 GB | 489 MB | — | ~0 MB | — |
+| **Len()** | 4ms | 22ms | — | 229ms | — |
+| **Full scan** | 835ms | 1.75s | — | 1.6s | — |
+| **Subject lookup** | 144 ns | 3.5 us | 3.1 us | 5.5 us | 7.4 us |
+| **Predicate scan** | 2.6ms | 8.4ms | 8.8ms | 345ms | 1.2s |
+
+```bash
+go test ./store/ -run TestStress -v -count=1
+```
+
 ## Examples
 
 The [examples/](examples/) directory contains runnable programs:
