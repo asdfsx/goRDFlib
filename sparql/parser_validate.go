@@ -13,8 +13,6 @@ func (p *sparqlParser) validate(q *ParsedQuery) error {
 		}
 	}
 
-
-
 	if q.Type == "SELECT" {
 		// SELECT * with GROUP BY is invalid
 		if q.Variables == nil && len(q.GroupBy) > 0 {

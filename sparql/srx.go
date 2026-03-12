@@ -64,11 +64,11 @@ type srxResult struct {
 }
 
 type srxBinding struct {
-	Name    string     `xml:"name,attr"`
-	URI     string     `xml:"uri"`
-	BNode   string     `xml:"bnode"`
+	Name    string      `xml:"name,attr"`
+	URI     string      `xml:"uri"`
+	BNode   string      `xml:"bnode"`
 	Literal *srxLiteral `xml:"literal"`
-	Triple  *srxTriple `xml:"triple"`
+	Triple  *srxTriple  `xml:"triple"`
 }
 
 type srxLiteral struct {

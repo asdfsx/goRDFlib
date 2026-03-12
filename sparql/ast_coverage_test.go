@@ -7,7 +7,6 @@ import (
 	rdflibgo "github.com/tggo/goRDFlib"
 )
 
-
 // EvalQuery edge cases
 func TestEvalQueryASK(t *testing.T) {
 	g := makeSPARQLGraph(t)
@@ -1257,7 +1256,6 @@ func TestMultipleUpdateOps(t *testing.T) {
 		t.Errorf("expected 2, got %d", ds.Default.Len())
 	}
 }
-
 
 // ---- ASK result from SRJ ----
 

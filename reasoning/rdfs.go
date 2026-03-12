@@ -211,4 +211,3 @@ func (e *rdfsEngine) applyRules() []term.Triple {
 
 	return newTriples
 }
-

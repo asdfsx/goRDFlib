@@ -346,12 +346,12 @@ func TestSerialize_isValidPrefixName_edge(t *testing.T) {
 		s    string
 		want bool
 	}{
-		{"", true},          // empty is valid prefix
+		{"", true}, // empty is valid prefix
 		{"foo", true},
-		{"foo.", false},     // trailing dot
+		{"foo.", false}, // trailing dot
 		{"foo-bar", true},
-		{"1bad", false},     // starts with digit
-		{"a\u0300", true},   // combining mark
+		{"1bad", false},   // starts with digit
+		{"a\u0300", true}, // combining mark
 	}
 	for _, tc := range tests {
 		got := isValidPrefixName(tc.s)
@@ -369,9 +369,9 @@ func TestSerialize_isValidLocalName_edge(t *testing.T) {
 	}{
 		{"", false},
 		{"foo", true},
-		{"foo.", false},    // trailing dot
-		{"0foo", true},    // starts with digit - valid
-		{":colon", true},  // starts with colon
+		{"foo.", false},     // trailing dot
+		{"0foo", true},      // starts with digit - valid
+		{":colon", true},    // starts with colon
 		{"ab\u00B7c", true}, // middle dot valid
 	}
 	for _, tc := range tests {
@@ -549,8 +549,8 @@ func TestParse_EmptyBNodeInReified(t *testing.T) {
 // TestParse_ReadVersionString_Errors tests error paths in readVersionString.
 func TestParse_ReadVersionString_Errors(t *testing.T) {
 	cases := []string{
-		`VERSION `,              // empty after VERSION
-		`VERSION '''bad'''`,     // triple-quoted
+		`VERSION `,               // empty after VERSION
+		`VERSION '''bad'''`,      // triple-quoted
 		"VERSION \"unterminated", // unterminated
 		"VERSION \"new\nline\"",  // newline inside
 	}

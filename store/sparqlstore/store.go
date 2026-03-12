@@ -24,9 +24,9 @@ type SPARQLStore struct {
 	client    *http.Client
 
 	// Local namespace cache (no standard SPARQL way to query prefixes).
-	nsMu       sync.RWMutex
-	nsPrefix   map[string]term.URIRef // prefix → namespace
-	nsURI      map[string]string      // namespace → prefix
+	nsMu     sync.RWMutex
+	nsPrefix map[string]term.URIRef // prefix → namespace
+	nsURI    map[string]string      // namespace → prefix
 }
 
 // Option configures a SPARQLStore.

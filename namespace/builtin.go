@@ -46,10 +46,10 @@ var RDF = struct {
 
 	DirLangString: term.RDFDirLangString,
 	HTML:          term.NewURIRefUnsafe(term.RDFNamespace + "HTML"),
-	JSON:         term.NewURIRefUnsafe(term.RDFNamespace + "JSON"),
-	PlainLiteral: term.NewURIRefUnsafe(term.RDFNamespace + "PlainLiteral"),
-	XMLLiteral:   term.NewURIRefUnsafe(term.RDFNamespace + "XMLLiteral"),
-	LangString:   term.RDFLangString,
+	JSON:          term.NewURIRefUnsafe(term.RDFNamespace + "JSON"),
+	PlainLiteral:  term.NewURIRefUnsafe(term.RDFNamespace + "PlainLiteral"),
+	XMLLiteral:    term.NewURIRefUnsafe(term.RDFNamespace + "XMLLiteral"),
+	LangString:    term.RDFLangString,
 
 	Nil: term.NewURIRefUnsafe(term.RDFNamespace + "nil"),
 }

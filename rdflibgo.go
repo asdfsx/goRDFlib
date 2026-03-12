@@ -106,18 +106,18 @@ var (
 // --- XSD datatype URIs ---
 
 var (
-	XSDString     = term.XSDString
-	XSDInteger    = term.XSDInteger
-	XSDInt        = term.XSDInt
-	XSDLong       = term.XSDLong
-	XSDFloat      = term.XSDFloat
-	XSDDouble     = term.XSDDouble
-	XSDDecimal    = term.XSDDecimal
-	XSDBoolean    = term.XSDBoolean
-	XSDDateTime   = term.XSDDateTime
-	XSDDate       = term.XSDDate
-	XSDTime       = term.XSDTime
-	XSDAnyURI     = term.XSDAnyURI
+	XSDString        = term.XSDString
+	XSDInteger       = term.XSDInteger
+	XSDInt           = term.XSDInt
+	XSDLong          = term.XSDLong
+	XSDFloat         = term.XSDFloat
+	XSDDouble        = term.XSDDouble
+	XSDDecimal       = term.XSDDecimal
+	XSDBoolean       = term.XSDBoolean
+	XSDDateTime      = term.XSDDateTime
+	XSDDate          = term.XSDDate
+	XSDTime          = term.XSDTime
+	XSDAnyURI        = term.XSDAnyURI
 	RDFLangString    = term.RDFLangString
 	RDFDirLangString = term.RDFDirLangString
 	RDFReifies       = term.RDFReifies
@@ -157,9 +157,9 @@ func WithDatatype(dt URIRef) LiteralOption                { return term.WithData
 func NewTripleTerm(s Subject, p URIRef, o Term) TripleTerm {
 	return term.NewTripleTerm(s, p, o)
 }
-func GoToLexical(value any) (string, URIRef)              { return term.GoToLexical(value) }
-func CompareTerm(a, b Term) int                           { return term.CompareTerm(a, b) }
-func SortTerms(terms []Term)                              { term.SortTerms(terms) }
+func GoToLexical(value any) (string, URIRef) { return term.GoToLexical(value) }
+func CompareTerm(a, b Term) int              { return term.CompareTerm(a, b) }
+func SortTerms(terms []Term)                 { term.SortTerms(terms) }
 
 // --- Store constructors ---
 

@@ -25,20 +25,20 @@ type Manifest struct {
 
 // TestEntry represents a single W3C conformance test.
 type TestEntry struct {
-	Name       string   // mf:name
-	Type       string   // full IRI, e.g. "http://www.w3.org/ns/rdftest#TestTurtleEval"
-	Action     string   // absolute file path from mf:action (for simple tests)
-	Result     string   // absolute file path from mf:result (empty for syntax tests)
-	Query      string   // absolute file path from qt:query (SPARQL tests)
-	Data       string   // absolute file path from qt:data (SPARQL tests)
-	GraphData  []string // absolute file paths from qt:graphData (named graphs)
+	Name      string   // mf:name
+	Type      string   // full IRI, e.g. "http://www.w3.org/ns/rdftest#TestTurtleEval"
+	Action    string   // absolute file path from mf:action (for simple tests)
+	Result    string   // absolute file path from mf:result (empty for syntax tests)
+	Query     string   // absolute file path from qt:query (SPARQL tests)
+	Data      string   // absolute file path from qt:data (SPARQL tests)
+	GraphData []string // absolute file paths from qt:graphData (named graphs)
 
 	// Update test fields (ut: namespace)
-	Request         string           // ut:request - update file path
-	ActionData      string           // ut:data in action (pre-data for default graph)
-	ActionGraphData []NamedGraphRef  // ut:graphData in action (pre-data for named graphs)
-	ResultData      string           // ut:data in result (post-data for default graph)
-	ResultGraphData []NamedGraphRef  // ut:graphData in result (post-data for named graphs)
+	Request         string          // ut:request - update file path
+	ActionData      string          // ut:data in action (pre-data for default graph)
+	ActionGraphData []NamedGraphRef // ut:graphData in action (pre-data for named graphs)
+	ResultData      string          // ut:data in result (post-data for default graph)
+	ResultGraphData []NamedGraphRef // ut:graphData in result (post-data for named graphs)
 
 	// Entailment test fields
 	EntailmentRegime      string   // mf:entailmentRegime ("simple"/"RDF"/"RDFS")

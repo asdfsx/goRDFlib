@@ -233,8 +233,8 @@ func (c *MaxListLengthConstraint) Evaluate(ctx *evalContext, shape *Shape, focus
 // referenced shape. A reifier is a node ?r where
 // ?r rdf:reifies <<(focusNode pathPred value)>> exists in the data graph.
 type ReifierShapeConstraint struct {
-	ShapeRef             Term
-	ReificationRequired  bool
+	ShapeRef            Term
+	ReificationRequired bool
 }
 
 func (c *ReifierShapeConstraint) ComponentIRI() string {

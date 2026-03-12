@@ -263,7 +263,7 @@ func TestTripleTermCONSTRUCT(t *testing.T) {
 
 func TestUpdateWithReifiedTriples(t *testing.T) {
 	ds := &sparql.Dataset{
-		Default:     rdflibgo.NewGraph(),
+		Default: rdflibgo.NewGraph(),
 		NamedGraphs: map[string]*rdflibgo.Graph{
 			"http://ex/g1": func() *rdflibgo.Graph {
 				g := rdflibgo.NewGraph()

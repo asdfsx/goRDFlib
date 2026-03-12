@@ -228,7 +228,7 @@ func (*GraphMgmtOp) isUpdateOp() {}
 
 // QuadPattern groups triples under a graph name ("" = default graph).
 type QuadPattern struct {
-	Graph   string   // "" = default graph
+	Graph   string // "" = default graph
 	Triples []Triple
 }
 

@@ -25,12 +25,12 @@ func TestW3CSPARQL12(t *testing.T) {
 	}
 
 	const (
-		mfQueryEval     = "http://www.w3.org/2001/sw/DataAccess/tests/test-manifest#QueryEvaluationTest"
-		mfUpdateEval    = "http://www.w3.org/2001/sw/DataAccess/tests/test-manifest#UpdateEvaluationTest"
-		mfPosSyntax     = "http://www.w3.org/2001/sw/DataAccess/tests/test-manifest#PositiveSyntaxTest"
-		mfNegSyntax     = "http://www.w3.org/2001/sw/DataAccess/tests/test-manifest#NegativeSyntaxTest"
-		mfPosSyntax11   = "http://www.w3.org/2001/sw/DataAccess/tests/test-manifest#PositiveSyntaxTest11"
-		mfNegSyntax11   = "http://www.w3.org/2001/sw/DataAccess/tests/test-manifest#NegativeSyntaxTest11"
+		mfQueryEval   = "http://www.w3.org/2001/sw/DataAccess/tests/test-manifest#QueryEvaluationTest"
+		mfUpdateEval  = "http://www.w3.org/2001/sw/DataAccess/tests/test-manifest#UpdateEvaluationTest"
+		mfPosSyntax   = "http://www.w3.org/2001/sw/DataAccess/tests/test-manifest#PositiveSyntaxTest"
+		mfNegSyntax   = "http://www.w3.org/2001/sw/DataAccess/tests/test-manifest#NegativeSyntaxTest"
+		mfPosSyntax11 = "http://www.w3.org/2001/sw/DataAccess/tests/test-manifest#PositiveSyntaxTest11"
+		mfNegSyntax11 = "http://www.w3.org/2001/sw/DataAccess/tests/test-manifest#NegativeSyntaxTest11"
 	)
 
 	for _, entry := range manifest.Entries {

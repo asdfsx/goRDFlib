@@ -234,11 +234,11 @@ func TestIsAbsoluteIRI(t *testing.T) {
 		{"urn:isbn:0451450523", true},
 		{"relative/path", false},
 		{"", false},
-		{":noscheme", false},     // colon at position 0
-		{"1abc:bad", false},      // digit as first char
-		{"a b:bad", false},       // space in scheme
-		{"http", false},          // no colon
-		{"a+b-c.d:ok", true},    // '+', '-', '.' allowed after first char
+		{":noscheme", false}, // colon at position 0
+		{"1abc:bad", false},  // digit as first char
+		{"a b:bad", false},   // space in scheme
+		{"http", false},      // no colon
+		{"a+b-c.d:ok", true}, // '+', '-', '.' allowed after first char
 	}
 	for _, tc := range cases {
 		got := isAbsoluteIRI(tc.s)
@@ -351,8 +351,8 @@ func TestXMLEscapeToBuilder(t *testing.T) {
 		{">", "&gt;"},
 		{"&", "&amp;"},
 		{`"`, "&quot;"},
-		{"'", "'"},                         // single quote — no escaping
-		{"hello world", "hello world"},     // plain text unchanged
+		{"'", "'"},                     // single quote — no escaping
+		{"hello world", "hello world"}, // plain text unchanged
 		{"a<b>c&d\"e", "a&lt;b&gt;c&amp;d&quot;e"},
 		{"", ""},
 	}

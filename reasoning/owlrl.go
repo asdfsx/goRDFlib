@@ -41,17 +41,17 @@ type ruleTriple struct {
 
 // owlRestriction holds parsed OWL restriction data.
 type owlRestriction struct {
-	node            term.Subject // the restriction bnode/URIRef
-	onProperty      term.URIRef  // owl:onProperty
-	hasOnProperty   bool
-	someValuesFrom  term.Term // owl:someValuesFrom
-	allValuesFrom   term.Term // owl:allValuesFrom
-	hasValue        term.Term // owl:hasValue
-	hasSelf         bool      // owl:hasSelf "true"
-	maxCard         int       // owl:maxCardinality (-1 = not set)
-	maxQualCard     int       // owl:maxQualifiedCardinality (-1 = not set)
-	onClass         term.Term // owl:onClass (for qualified cardinality)
-	complementOf    term.Term // owl:complementOf
+	node           term.Subject // the restriction bnode/URIRef
+	onProperty     term.URIRef  // owl:onProperty
+	hasOnProperty  bool
+	someValuesFrom term.Term // owl:someValuesFrom
+	allValuesFrom  term.Term // owl:allValuesFrom
+	hasValue       term.Term // owl:hasValue
+	hasSelf        bool      // owl:hasSelf "true"
+	maxCard        int       // owl:maxCardinality (-1 = not set)
+	maxQualCard    int       // owl:maxQualifiedCardinality (-1 = not set)
+	onClass        term.Term // owl:onClass (for qualified cardinality)
+	complementOf   term.Term // owl:complementOf
 }
 
 // negPropAssertion holds a parsed owl:NegativePropertyAssertion.
@@ -68,13 +68,13 @@ type owlrlEngine struct {
 	ded *dedupSet
 
 	// Phase 1: Core property indexes
-	symmetricProps  map[string]struct{}       // owl:SymmetricProperty
-	transitiveProps map[string]struct{}       // owl:TransitiveProperty
-	functionalProps map[string]struct{}       // owl:FunctionalProperty
-	invFuncProps    map[string]struct{}       // owl:InverseFunctionalProperty
-	inverseOf       map[string][]term.URIRef  // property key → inverse properties
-	equivProp       map[string][]term.URIRef  // property key → equivalent properties
-	equivClass      map[string][]term.URIRef  // class key → equivalent classes
+	symmetricProps  map[string]struct{}      // owl:SymmetricProperty
+	transitiveProps map[string]struct{}      // owl:TransitiveProperty
+	functionalProps map[string]struct{}      // owl:FunctionalProperty
+	invFuncProps    map[string]struct{}      // owl:InverseFunctionalProperty
+	inverseOf       map[string][]term.URIRef // property key → inverse properties
+	equivProp       map[string][]term.URIRef // property key → equivalent properties
+	equivClass      map[string][]term.URIRef // class key → equivalent classes
 
 	// Phase 2: Extended property indexes
 	irreflexiveProps map[string]struct{}        // owl:IrreflexiveProperty
@@ -85,19 +85,19 @@ type owlrlEngine struct {
 	hasKeyIndex      map[string][]term.URIRef   // class key → key properties
 
 	// Phase 3: Class restriction indexes
-	restrictions    []*owlRestriction          // all parsed restrictions
-	restrByProp     map[string][]*owlRestriction // property key → restrictions
-	intersectionOf  map[string][]term.Term     // class key → intersection member classes
-	unionOf         map[string][]term.Term     // class key → union member classes
-	complementOf    map[string]term.Term       // class key → complement class
-	oneOfMembers    map[string][]term.Term     // class key → enumerated members
+	restrictions   []*owlRestriction            // all parsed restrictions
+	restrByProp    map[string][]*owlRestriction // property key → restrictions
+	intersectionOf map[string][]term.Term       // class key → intersection member classes
+	unionOf        map[string][]term.Term       // class key → union member classes
+	complementOf   map[string]term.Term         // class key → complement class
+	oneOfMembers   map[string][]term.Term       // class key → enumerated members
 
 	// Phase 4: Class axiom indexes
 	disjointWith     map[string][]term.URIRef // class key → disjoint classes
 	allDisjointClass [][]term.URIRef          // groups of mutually disjoint classes
 
 	// Phase 5: Consistency indexes
-	differentFrom  map[string][]term.Term    // term key → differentFrom terms
+	differentFrom  map[string][]term.Term // term key → differentFrom terms
 	negPropAsserts []*negPropAssertion
 
 	// Union-find for owl:sameAs

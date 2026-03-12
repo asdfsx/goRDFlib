@@ -31,24 +31,24 @@ const (
 	srlTokDot
 	srlTokSemicolon
 	srlTokComma
-	srlTokHat      // ^^
-	srlTokAt       // @
-	srlTokTilde    // ~
-	srlTokLTriple  // << or <<(
-	srlTokRTriple  // >> or )>>
-	srlTokLAnnot   // {|
-	srlTokRAnnot   // |}
-	srlTokIRI      // <http://...>
-	srlTokPName    // prefix:local
-	srlTokVar      // ?name
-	srlTokBNode    // _:label
-	srlTokString   // "..." or '...' or """...""" or '''...'''
-	srlTokInteger  // 123, -123, +123
-	srlTokDecimal  // 123.45
-	srlTokDouble   // 123e10
-	srlTokTrue     // true
-	srlTokFalse    // false
-	srlTokExpr     // raw expression text (for FILTER/BIND parenthesized content)
+	srlTokHat     // ^^
+	srlTokAt      // @
+	srlTokTilde   // ~
+	srlTokLTriple // << or <<(
+	srlTokRTriple // >> or )>>
+	srlTokLAnnot  // {|
+	srlTokRAnnot  // |}
+	srlTokIRI     // <http://...>
+	srlTokPName   // prefix:local
+	srlTokVar     // ?name
+	srlTokBNode   // _:label
+	srlTokString  // "..." or '...' or """...""" or '''...'''
+	srlTokInteger // 123, -123, +123
+	srlTokDecimal // 123.45
+	srlTokDouble  // 123e10
+	srlTokTrue    // true
+	srlTokFalse   // false
+	srlTokExpr    // raw expression text (for FILTER/BIND parenthesized content)
 )
 
 type srlToken struct {

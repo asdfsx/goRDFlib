@@ -1,6 +1,5 @@
 package sparql
 
-
 // Parse parses a SPARQL query string.
 // Ported from: rdflib.plugins.sparql.parser.parseQuery
 func Parse(input string) (*ParsedQuery, error) {
@@ -23,12 +22,12 @@ func ParseUpdate(input string) (*ParsedUpdate, error) {
 }
 
 type sparqlParser struct {
-	input          string
-	pos            int
-	prefixes       map[string]string
-	bnodeCount     int
-	reifierTriples []Triple // pending rdf:reifies triples from reified triple syntax
-	tripleTermError error   // deferred error from triple term validation
+	input           string
+	pos             int
+	prefixes        map[string]string
+	bnodeCount      int
+	reifierTriples  []Triple // pending rdf:reifies triples from reified triple syntax
+	tripleTermError error    // deferred error from triple term validation
 }
 
 func (p *sparqlParser) parse() (*ParsedQuery, error) {
@@ -178,4 +177,3 @@ func (p *sparqlParser) parse() (*ParsedQuery, error) {
 
 	return q, nil
 }
-

@@ -25,9 +25,9 @@ type Shape struct {
 
 // SPARQLValues represents sh:values with sh:select or sh:sparqlExpr.
 type SPARQLValues struct {
-	Select    string // SPARQL SELECT query (with prefixes prepended)
-	Expr      string // SPARQL expression (wrapped into SELECT)
-	Prefixes  string // resolved PREFIX declarations
+	Select   string // SPARQL SELECT query (with prefixes prepended)
+	Expr     string // SPARQL expression (wrapped into SELECT)
+	Prefixes string // resolved PREFIX declarations
 }
 
 // Target represents a target declaration on a shape.
@@ -264,7 +264,6 @@ func parseShapeBasic(g *Graph, s *Shape, shapes map[string]*Shape) {
 			s.Values = &SPARQLValues{Expr: exprs[0].Value(), Prefixes: prefixes}
 		}
 	}
-
 
 	if sevs := g.Objects(id, IRI(SH+"severity")); len(sevs) > 0 {
 		s.Severity = sevs[0]

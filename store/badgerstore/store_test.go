@@ -18,13 +18,13 @@ func newTestStore(t *testing.T) *BadgerStore {
 }
 
 var (
-	alice = term.NewURIRefUnsafe("http://example.org/Alice")
-	bob   = term.NewURIRefUnsafe("http://example.org/Bob")
-	name  = term.NewURIRefUnsafe("http://example.org/name")
-	age   = term.NewURIRefUnsafe("http://example.org/age")
-	knows = term.NewURIRefUnsafe("http://example.org/knows")
-	rdfT  = term.NewURIRefUnsafe("http://www.w3.org/1999/02/22-rdf-syntax-ns#type")
-	foafP = term.NewURIRefUnsafe("http://xmlns.com/foaf/0.1/Person")
+	alice  = term.NewURIRefUnsafe("http://example.org/Alice")
+	bob    = term.NewURIRefUnsafe("http://example.org/Bob")
+	name   = term.NewURIRefUnsafe("http://example.org/name")
+	age    = term.NewURIRefUnsafe("http://example.org/age")
+	knows  = term.NewURIRefUnsafe("http://example.org/knows")
+	rdfT   = term.NewURIRefUnsafe("http://www.w3.org/1999/02/22-rdf-syntax-ns#type")
+	foafP  = term.NewURIRefUnsafe("http://xmlns.com/foaf/0.1/Person")
 	graph1 = term.NewURIRefUnsafe("http://example.org/graph1")
 	graph2 = term.NewURIRefUnsafe("http://example.org/graph2")
 )

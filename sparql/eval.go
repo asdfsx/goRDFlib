@@ -1549,4 +1549,3 @@ func buildStorePattern(tp *Triple, prefixes map[string]string) term.TriplePatter
 	pat.Object = o
 	return pat
 }
-
