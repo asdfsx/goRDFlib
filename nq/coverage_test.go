@@ -116,7 +116,7 @@ func TestParseMalformedInput(t *testing.T) {
 		"not valid nquads\n",
 		`<http://example.org/s> <http://example.org/p>` + "\n",                      // missing object
 		`<http://example.org/s> <http://example.org/p> "hello"` + "\n",              // missing dot
-		`<relative> <http://example.org/p> "hello" .` + "\n",                         // relative subject
+		`<relative> <http://example.org/p> "hello" .` + "\n",                        // relative subject
 		`<http://example.org/s> <http://example.org/p> "hello\uD800world" .` + "\n", // surrogate
 	}
 	for _, input := range inputs {

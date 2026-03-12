@@ -651,9 +651,9 @@ func TestSRLKeyToTermFallback(t *testing.T) {
 
 func TestEscapeUnescapeLiteralValue(t *testing.T) {
 	tests := []struct {
-		name     string
-		input    string
-		escaped  string
+		name    string
+		input   string
+		escaped string
 	}{
 		{"quotes", `say "hi"`, `say \"hi\"`},
 		{"backslash", `a\b`, `a\\b`},
@@ -6134,8 +6134,8 @@ func TestSPARQLComponentConstraintSELECTError(t *testing.T) {
 	c := &SPARQLComponentConstraint{
 		ComponentNode: IRI("http://example.org/comp"),
 		Validator: &validatorDef{
-			IsASK: false,
-			Query: "INVALID SPARQL {{{{",
+			IsASK:    false,
+			Query:    "INVALID SPARQL {{{{",
 			Messages: []Term{Literal("error msg", "", "")},
 		},
 	}

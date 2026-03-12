@@ -815,7 +815,7 @@ func TestIsValidNCNameEdges(t *testing.T) {
 		{"_x", true},
 		{"1bad", false},
 		{"a-b.c", true},
-		{"a\u00C0b", true},   // extended char in middle
+		{"a\u00C0b", true}, // extended char in middle
 	}
 	for _, tc := range tests {
 		got := isValidNCName(tc.name)

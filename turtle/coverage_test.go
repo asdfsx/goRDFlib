@@ -1390,11 +1390,11 @@ func TestCovSerializeIsValidPrefixNameMiddleDot(t *testing.T) {
 		name string
 		want bool
 	}{
-		{"a\u0300b", true},  // combining grave accent
-		{"a\u203Fb", true},  // undertie
-		{"a\u2040b", true},  // character tie
-		{"a\u00B7b", true},  // middle dot
-		{"a$b", false},      // invalid character in middle
+		{"a\u0300b", true}, // combining grave accent
+		{"a\u203Fb", true}, // undertie
+		{"a\u2040b", true}, // character tie
+		{"a\u00B7b", true}, // middle dot
+		{"a$b", false},     // invalid character in middle
 	}
 	for _, tc := range tests {
 		got := isValidPrefixName(tc.name)
@@ -1410,13 +1410,13 @@ func TestCovSerializeIsValidLocalNameMiddleChars(t *testing.T) {
 		name string
 		want bool
 	}{
-		{"a\u0300b", true},  // combining grave accent
-		{"a\u203Fb", true},  // undertie
-		{"a\u00B7b", true},  // middle dot
-		{"a-b", true},       // hyphen
-		{"a.b", true},       // dot in middle
-		{"a:b", true},       // colon
-		{"a$b", false},      // invalid
+		{"a\u0300b", true}, // combining grave accent
+		{"a\u203Fb", true}, // undertie
+		{"a\u00B7b", true}, // middle dot
+		{"a-b", true},      // hyphen
+		{"a.b", true},      // dot in middle
+		{"a:b", true},      // colon
+		{"a$b", false},     // invalid
 	}
 	for _, tc := range tests {
 		got := isValidLocalName(tc.name)

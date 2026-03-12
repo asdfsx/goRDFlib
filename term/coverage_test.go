@@ -1134,9 +1134,9 @@ func TestLiteralFromN3_PlainStringLiteral(t *testing.T) {
 type customTerm struct{}
 
 func (c customTerm) N3(ns ...NamespaceManager) string { return "<custom>" }
-func (c customTerm) String() string                    { return "custom" }
-func (c customTerm) Equal(other Term) bool             { return false }
-func (c customTerm) termType() string                  { return "Custom" }
+func (c customTerm) String() string                   { return "custom" }
+func (c customTerm) Equal(other Term) bool            { return false }
+func (c customTerm) termType() string                 { return "Custom" }
 
 func TestTermKey_DefaultBranch(t *testing.T) {
 	ct := customTerm{}
