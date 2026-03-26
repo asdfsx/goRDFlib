@@ -25,7 +25,15 @@ func Parse(g *rdflibgo.Graph, r io.Reader, opts ...Option) error {
 			continue
 		}
 		if err := parseNTLine(g, line, lineNum); err != nil {
-			return err
+			if cfg.errorHandler == nil {
+				return err
+			}
+			fixedLine, retry := cfg.errorHandler(lineNum, line, err)
+			if retry {
+				if err2 := parseNTLine(g, fixedLine, lineNum); err2 != nil {
+					return fmt.Errorf("line %d: retry failed: %w", lineNum, err2)
+				}
+			}
 		}
 	}
 	return scanner.Err()

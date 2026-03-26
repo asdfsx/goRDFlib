@@ -56,6 +56,51 @@ func Example_ntToNq() {
 	// <http://example.org/s2> <http://example.org/p> "world" <urn:example:mygraph> .
 }
 
+func Example_errorHandlerSkip() {
+	// Data with an invalid IRI (space inside <>). The error handler
+	// skips the bad line and parsing continues with the rest.
+	ntData := `<http://example.org/s1> <http://example.org/p> "good" .
+<http://example.org/s 2> <http://example.org/p> "bad iri" .
+<http://example.org/s3> <http://example.org/p> "also good" .
+`
+	g := rdflibgo.NewGraph()
+	err := nt.Parse(g, strings.NewReader(ntData), nt.WithErrorHandler(
+		func(lineNum int, line string, err error) (string, bool) {
+			fmt.Printf("skipping line %d: %v\n", lineNum, err)
+			return "", false
+		},
+	))
+	if err != nil {
+		fmt.Println("error:", err)
+		return
+	}
+	fmt.Printf("parsed %d triples\n", g.Len())
+	// Output:
+	// skipping line 2: line 2: subject: line 2: invalid character in IRI
+	// parsed 2 triples
+}
+
+func Example_errorHandlerRetry() {
+	// The error handler fixes the invalid IRI by percent-encoding
+	// the space, then returns the fixed line for re-parsing.
+	ntData := `<http://example.org/s> <http://example.org/p> <http://example.org/o with space> .
+`
+	g := rdflibgo.NewGraph()
+	err := nt.Parse(g, strings.NewReader(ntData), nt.WithErrorHandler(
+		func(lineNum int, line string, err error) (string, bool) {
+			fixed := strings.ReplaceAll(line, "o with space", "o%20with%20space")
+			return fixed, true
+		},
+	))
+	if err != nil {
+		fmt.Println("error:", err)
+		return
+	}
+	fmt.Printf("parsed %d triples\n", g.Len())
+	// Output:
+	// parsed 1 triples
+}
+
 func Example_ntToNqDefaultGraph() {
 	// Without WithIdentifier, triples go into the default graph
 	// and N-Quads output has no 4th component (just triples with a dot).

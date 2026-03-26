@@ -186,3 +186,72 @@ func TestNQParserLangAndDatatype(t *testing.T) {
 		t.Errorf("expected xsd:integer, got %v", v2)
 	}
 }
+
+func TestNQParserErrorHandlerSkip(t *testing.T) {
+	input := `<http://example.org/s1> <http://example.org/p> "good" <http://example.org/g> .
+<http://example.org/s 2> <http://example.org/p> "bad iri" <http://example.org/g> .
+<http://example.org/s3> <http://example.org/p> "also good" <http://example.org/g> .
+`
+	g := rdflibgo.NewGraph()
+	var skipped []int
+	err := Parse(g, strings.NewReader(input), WithErrorHandler(
+		func(lineNum int, line string, err error) (string, bool) {
+			skipped = append(skipped, lineNum)
+			return "", false
+		},
+	))
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if g.Len() != 2 {
+		t.Errorf("expected 2 triples, got %d", g.Len())
+	}
+	if len(skipped) != 1 || skipped[0] != 2 {
+		t.Errorf("expected skipped=[2], got %v", skipped)
+	}
+}
+
+func TestNQParserErrorHandlerRetry(t *testing.T) {
+	input := `<http://example.org/s> <http://example.org/p> <http://example.org/o with space> <http://example.org/g> .
+`
+	g := rdflibgo.NewGraph()
+	err := Parse(g, strings.NewReader(input), WithErrorHandler(
+		func(lineNum int, line string, err error) (string, bool) {
+			fixed := strings.ReplaceAll(line, "o with space", "o%20with%20space")
+			return fixed, true
+		},
+	))
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if g.Len() != 1 {
+		t.Errorf("expected 1 triple, got %d", g.Len())
+	}
+}
+
+func TestNQParserNoErrorHandler(t *testing.T) {
+	input := `<http://example.org/s 2> <http://example.org/p> "bad" .
+`
+	g := rdflibgo.NewGraph()
+	err := Parse(g, strings.NewReader(input))
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
+}
+
+func TestNQParserErrorHandlerRetryFails(t *testing.T) {
+	input := `<http://example.org/s 2> <http://example.org/p> "bad" .
+`
+	g := rdflibgo.NewGraph()
+	err := Parse(g, strings.NewReader(input), WithErrorHandler(
+		func(lineNum int, line string, err error) (string, bool) {
+			return line, true // return same broken line
+		},
+	))
+	if err == nil {
+		t.Fatal("expected error on failed retry, got nil")
+	}
+	if !strings.Contains(err.Error(), "retry failed") {
+		t.Errorf("expected 'retry failed' in error, got: %v", err)
+	}
+}
